@@ -1,6 +1,6 @@
-from data.modified_agrawal import *
-from data.modified_concept_drift_stream import GradualConceptDriftStream
-from data.modified_sea import SuddenDriftSEA
+from data.modified_stream_generators.modified_agrawal import *
+from data.modified_stream_generators.modified_concept_drift_stream import GradualConceptDriftStream
+from data.modified_stream_generators.modified_sea import SuddenDriftSEA
 from river.datasets.synth import Hyperplane
 
 

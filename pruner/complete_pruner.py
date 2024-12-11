@@ -38,11 +38,18 @@ class CompletePruner(BasePruner):
         if isinstance(node, DTBranch):
             # Prune the node if its splitting feature is not important.
             if node.feature not in self.tree.important_features:
-                new_leaf = self.tree.create_new_leaf(initial_stats=node.stats, parent=parent)
+                new_leaf = self.tree.create_new_leaf(initial_stats=node.stats, parent=parent,
+                                                     prune_info=(int(self.tree._train_weight_seen_by_model), node.feature))
+
+                for branch in node.iter_branches():
+                    self.tree.branch_lifetimes[branch.feature][branch.creation_instance] = int(self.tree._train_weight_seen_by_model)
+
                 if parent is None:
                     self.tree.set_new_root(new_leaf)
                 else:
                     parent.children[index] = new_leaf
+                # also store when node was created
+                # a variable that saves that a node got pruned at instance x the feature f
             else:
                 # Recursively prune the children.
                 for i, child in enumerate(node.children):

@@ -1,0 +1,151 @@
+import pandas as pd
+from sklearn import datasets as sklearn_datasets
+from river import datasets
+from river.stream import iter_sklearn_dataset, iter_csv, iter_pandas
+from river.datasets.synth import Agrawal, RandomRBFDrift, LEDDrift
+
+from data.modified_stream_generators.modified_concept_drift_stream import SafeConceptDriftStream
+
+
+class Airlines(datasets.base.Dataset):
+    def __init__(self):
+        super().__init__(n_features=7, n_classes=2, n_outputs=1, task=datasets.base.BINARY_CLF)
+        converter = {"Flight": int, "DayOfWeek": int, "Time": int, "Length": int, "Delay": int}
+        self.iterator = iter_csv(filepath_or_buffer="data/datasets/airlines.zip", converters=converter, target="Delay")
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self.iterator)
+        except StopIteration:
+            raise StopIteration
+
+
+class KDD99(datasets.base.Dataset):
+    def __init__(self):
+        super().__init__(n_features=41, n_classes=23, n_outputs=1, task=datasets.base.MULTI_CLF)
+        dataset = sklearn_datasets.fetch_kddcup99(percent10=False)
+        self.iterator = iter_sklearn_dataset(dataset)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self.iterator)
+        except StopIteration:
+            raise StopIteration
+
+
+class WISDM(datasets.base.Dataset):
+    def __init__(self):
+        super().__init__(n_features=44, n_classes=6, n_outputs=1, task=datasets.base.MULTI_CLF)
+        converter = {"user": int}
+        converter.update({f"X{i}": float for i in range(0, 10)})
+        converter.update({f"Y{i}": float for i in range(0, 10)})
+        converter.update({f"Z{i}": float for i in range(0, 10)})
+        converter.update({col: float for col in ["XAVG", "YAVG", "ZAVG", "XPEAK", "YPEAK", "ZPEAK",
+                                                 "XABSOLDEV", "YABSOLDEV", "ZABSOLDEV",
+                                                 "XSTANDDEV", "YSTANDDEV", "ZSTANDDEV", "RESULTANT"]})
+        self.iterator = iter_csv(filepath_or_buffer="data/datasets/WISDM.zip", converters=converter, target="label")
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self.iterator)
+        except StopIteration:
+            raise StopIteration
+
+
+class CovType(datasets.base.Dataset):
+    def __init__(self):
+        super().__init__(n_features=54, n_classes=7, n_outputs=1, task=datasets.base.MULTI_CLF)
+        dataset = sklearn_datasets.fetch_covtype()
+        self.iterator = iter_sklearn_dataset(dataset)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self.iterator)
+        except StopIteration:
+            raise StopIteration
+
+
+class Nomao(datasets.base.Dataset):
+    def __init__(self):
+        super().__init__(n_features=118, n_classes=2, n_outputs=1, task=datasets.base.BINARY_CLF)
+        csv_file = "data/datasets/nomao.zip"
+        X = pd.read_csv(csv_file)
+        y = X.pop("label")
+        self.iterator = iter_pandas(X, y)  # spares me from having to create a type converter dict for the columns
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self.iterator)
+        except StopIteration:
+            raise StopIteration
+
+
+class DriftingAgrawal(datasets.base.SyntheticDataset):
+    def __init__(self, width, seed=42):
+        super().__init__(n_features=9, n_classes=2, n_outputs=1, task=datasets.base.BINARY_CLF)
+        _agrawal1 = Agrawal(classification_function=1, perturbation=0.05, seed=seed)
+        _agrawal2 = Agrawal(classification_function=2, perturbation=0.05, seed=seed)
+        _agrawal3 = Agrawal(classification_function=1, perturbation=0.05, seed=seed)
+        _agrawal4 = Agrawal(classification_function=4, perturbation=0.05, seed=seed)
+        first_drift = SafeConceptDriftStream(_agrawal1, _agrawal2, seed=seed, position=250000, width=int(width/2))
+        third_drift = SafeConceptDriftStream(_agrawal3, _agrawal4, seed=seed, position=250000, width=int(width/2))
+        self.data = iter(SafeConceptDriftStream(first_drift, third_drift, seed=seed, position=500000, width=int(width/2)))
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self.data)
+        except StopIteration:
+            raise StopIteration
+
+
+class DriftingRBF(RandomRBFDrift):
+    def __init__(self, change_speed, seed=42):
+        super().__init__(
+            seed_model=seed,
+            seed_sample=seed,
+            n_classes=5,
+            n_features=10,
+            n_centroids=50,
+            change_speed=change_speed,  # 0.001 and 0.0001
+            n_drift_centroids=50
+        )
+
+
+class DriftingLED(datasets.base.SyntheticDataset):
+    def __init__(self, width, seed=42):
+        super().__init__(n_features=24, n_classes=10, n_outputs=1, task=datasets.base.MULTI_CLF)
+        _led1 = LEDDrift(noise_percentage=0.1, irrelevant_features=True, n_drift_features=1, seed=seed)
+        _led2 = LEDDrift(noise_percentage=0.1, irrelevant_features=True, n_drift_features=3, seed=seed)
+        _led3 = LEDDrift(noise_percentage=0.1, irrelevant_features=True, n_drift_features=5, seed=seed)
+        _led4 = LEDDrift(noise_percentage=0.1, irrelevant_features=True, n_drift_features=7, seed=seed)
+        first_drift = SafeConceptDriftStream(_led1, _led2, seed=seed, position=250000, width=int(width/2))
+        third_drift = SafeConceptDriftStream(_led3, _led4, seed=seed, position=250000, width=int(width/2))
+        self.data = iter(SafeConceptDriftStream(first_drift, third_drift, seed=seed, position=500000, width=int(width/2)))
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self.data)
+        except StopIteration:
+            raise StopIteration
+
