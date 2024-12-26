@@ -70,24 +70,6 @@ class GradualConceptDriftStream(ConceptDriftStream):
     they remain consistent, and only the target values transition from one generator
     to the other over the specified width.
 
-    A stream generator that adds concept drift or change by joining two
-    streams. This is done by building a weighted combination of two pure
-    distributions that characterizes the target concepts before and after
-    the change.
-
-    The sigmoid function is an elegant and practical solution to define the
-    probability that each new instance of the stream belongs to the new
-    concept after the drift. The sigmoid function introduces a gradual, smooth
-    transition whose duration is controlled with two parameters:
-
-    - $p$, the position of the change.
-
-    - $w$, the width of the transition.
-
-    The sigmoid function at sample $t$ is
-
-    $$f(t) = 1/(1+e^{-4(t-p)/w})$$
-
     Parameters
     ----------
     stream
@@ -105,14 +87,6 @@ class GradualConceptDriftStream(ConceptDriftStream):
     width
         Width of concept drift change.
 
-    Notes
-    -----
-    An optional way to estimate the width of the transition $w$ is based on
-    the angle $\\alpha$, $w = 1/ tan(\\alpha)$. Since width corresponds to
-    the number of samples for the transition, the width is rounded to the
-    nearest smaller integer. Notice that larger values of $\\alpha$ result in
-    smaller widths. For $\\alpha > 45.0$, the width is smaller than 1 so values
-    are rounded to 1 to avoid division by zero errors.
     """
     def __init__(
         self,

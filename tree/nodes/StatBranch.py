@@ -3,6 +3,7 @@ from river.tree.nodes.branch import *
 
 
 class StatDTBranch(DTBranch):
+    """ Branch that keeps track of the instance at which it was created. """
     def __init__(self, stats, *children, **attributes):
         super().__init__(stats, *children, **attributes)
         self.creation_instance = None

@@ -38,8 +38,9 @@ from tree.nodes.StatBranch import (
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 class AdwinHPT(HoeffdingTreeClassifier):
-    """Hoeffding Pruning Tree using the VFDT classifier with incremental PFI to prune the tree.
+    """HPT that uses the ADWIN estimation as the importance threshold.
 
     Note: This works with river versions 0.16.0. Later versions may not be supported.
 
@@ -88,8 +89,6 @@ class AdwinHPT(HoeffdingTreeClassifier):
         If True, disable poor attributes to reduce memory usage.
     merit_preprune
         If True, enable merit-based tree pre-pruning.
-    importance_threshold
-        The threshold value that determines whether a feature is important or not.
     pruner
         The Pruner to use.</br>
         - 'selective' - SelectivePruner</br>
@@ -115,7 +114,6 @@ class AdwinHPT(HoeffdingTreeClassifier):
         stop_mem_management: bool = False,
         remove_poor_attrs: bool = False,
         merit_preprune: bool = True,
-        importance_threshold: float = 0.02,
         pruner: str = "complete",
         seed: int = None
     ):
@@ -140,7 +138,7 @@ class AdwinHPT(HoeffdingTreeClassifier):
 
         self.incremental_pfi = None
         self.pfi_plotter = None
-        self.importance_threshold = importance_threshold
+        self.importance_threshold = 0.02  # standard value for the beginning
 
         self.feature_names = None
         self.important_features = None
@@ -152,10 +150,8 @@ class AdwinHPT(HoeffdingTreeClassifier):
         # For threshold
         self.importance_adwin = ADWIN()
 
-        self.scaler = MinMaxScaler()
-
+        # {feature: (creation, death)}
         self.branch_lifetimes = None
-
 
     @property
     def root(self):
@@ -422,20 +418,13 @@ class AdwinHPT(HoeffdingTreeClassifier):
         else:
             self.important_features = self.feature_names
 
-        self.scaler.learn_one(self.importance_values)
-
     def _update_importance_threshold(self):
         average_importance_value = sum(self.importance_values.values()) / len(self.importance_values)
         self.importance_adwin.update(average_importance_value)
-        self.importance_threshold = self.importance_adwin.estimation  # + (self.importance_adwin.variance / 2)
+        self.importance_threshold = self.importance_adwin.estimation
 
     def _include_fi_in_merit(self, split_suggestions):
-        """ Includes scaled FI in the merit of each feature. """
-        self.scaled_fi = self.scaler.transform_one(self.incremental_pfi.importance_values)
-        for branch in split_suggestions:
-            if branch.feature in self.incremental_pfi.importance_values.keys():
-                #branch.merit *=  math.log2(len(self.classes)) * self.scaled_fi[branch.feature])
-                pass
+        """ Nothing. Currently only for AdwinHPTMerit """
         return split_suggestions
 
     def plot_pfi(
@@ -483,7 +472,7 @@ class AdwinHPT(HoeffdingTreeClassifier):
         )
 
     def draw(self, max_depth: int | None = None):
-        """Draw the tree using the `graphviz` library.
+        """Draw the tree using the `graphviz` library. Includes prune_info of leaves.
 
         Since the tree is drawn without passing incoming samples, classification trees
         will show the majority class in their leaves, whereas regression trees will
@@ -553,6 +542,7 @@ class AdwinHPT(HoeffdingTreeClassifier):
             if isinstance(child, DTBranch):
                 text = f"{child.feature}"  # type: ignore
             else:
+                # Checks whether the leaf was created due to pruning.
                 if child.prune_info is None:
                     text = f"{repr(child)}\nsamples: {int(child.total_weight)}\n"
                 else:
@@ -584,10 +574,8 @@ class AdwinHPT(HoeffdingTreeClassifier):
 
         return dot
 
-    # ADD LINE FOR NODE COUNT 0 (DAMIT ES NICHT SO ABGEZWEIGT IST.
     def plot_active_nodes_with_feature(self, feature):
-        """
-        Plots the active nodes over time with the importance values for a given feature.
+        """ Plots the active nodes over time with the importance values for a given feature.
 
         Parameters:
         - data: List of dictionaries, where each dictionary represents {creation_time: elimination_time}.
@@ -609,33 +597,38 @@ class AdwinHPT(HoeffdingTreeClassifier):
         active_count = []
 
         for event in events:
-            times.append(event[0])
-            if event[1]:
-                active_instances += 1
-            else:
-                active_instances -= 1
-            active_count.append(active_instances)
+            if event[0] != math.inf:
+                times.append(event[0])
+                if event[1]:
+                    active_instances += 1
+                else:
+                    active_instances -= 1
+                active_count.append(active_instances)
+
+        times = [0] + times + [len(self.collected_importance_values["importance_values"])]
+        active_count = [0] + active_count + [active_count[-1]]
+        print(times, active_count)
 
         # Extract importance values for the specified feature
         feature_values = np.array([entry.get(feature, 0.0) for entry in self.collected_importance_values["importance_values"]])
         time_steps = np.arange(len(feature_values))
 
-        # Normalize feature values to align with the active count range
-        if max(feature_values, default=1) != min(feature_values, default=0):  # Avoid division by zero
-            feature_values_normalized = ((feature_values - self.scaler.min.get()) /
-                                         (self.scaler.max.get() - self.scaler.min.get())
-                                         ) * max(active_count, default=1)
-        else:
-            feature_values_normalized = [0] * len(feature_values)
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel('Time')
+        color_left = 'tab:blue'
+        ax1.set_ylabel('Node Count', color=color_left)
+        ax1.step(times, active_count, color=color_left, label='Nodes')
+        ax1.tick_params(axis='y', labelcolor=color_left)
 
-        plt.figure(figsize=(10, 6))
-        plt.step(times, active_count, where='post', label='Nodes')
-        plt.plot(time_steps, feature_values_normalized, label=f'feature importance')
-        plt.xlabel('Instances')
-        plt.ylabel('Node counts / Normalized feature importances')
-        plt.title(f'Node count and feature importance of "{feature}" over time')
-        plt.legend()
-        plt.grid(True)
+        ax2 = ax1.twinx()
+
+        color_right = 'tab:red'
+        ax2.set_ylabel('Normalized Feature Importance', color=color_right)
+        ax2.plot(time_steps, feature_values, color=color_right, label=f'Feature Importance')
+        ax2.tick_params(axis='y', labelcolor=color_right)
+
+        plt.title(f'Node Count and Feature Importance of "{feature}" Over Time')
+        fig.tight_layout()
         plt.show()
 
 

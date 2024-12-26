@@ -3,6 +3,7 @@ from tree.adwin_hpt import AdwinHPT
 
 
 class AdwinHPTMerit(AdwinHPT):
+    """ AdwinHPT to experiment with the merit for pruning. """
 
     def __init__(
             self,

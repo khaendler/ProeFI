@@ -7,6 +7,16 @@ from river.datasets.synth import Agrawal, RandomRBFDrift, LEDDrift
 from data.modified_stream_generators.modified_concept_drift_stream import SafeConceptDriftStream
 
 
+#####################################################################################################
+# These datasets are based on
+#  Gunasekara, Nuwan & Gomes, Heitor Murilo & Pfahringer, Bernhard & Bifet, Albert. (2022).
+#  Online Hyperparameter Optimization for Streaming Neural Networks. 1-9. 10.1109/IJCNN55064.2022.9891953.
+# and
+#  Gomes, Heitor Murilo & Read, Jesse & Bifet, Albert. (2019).
+#  Streaming Random Patches for Evolving Data Stream Classification. 240-249. 10.1109/ICDM.2019.00034.
+#####################################################################################################
+
+
 class Airlines(datasets.base.Dataset):
     def __init__(self):
         super().__init__(n_features=7, n_classes=2, n_outputs=1, task=datasets.base.BINARY_CLF)
@@ -96,6 +106,7 @@ class Nomao(datasets.base.Dataset):
 
 
 class DriftingAgrawal(datasets.base.SyntheticDataset):
+    # used widths: 50 and 50k
     def __init__(self, width, seed=42):
         super().__init__(n_features=9, n_classes=2, n_outputs=1, task=datasets.base.BINARY_CLF)
         _agrawal1 = Agrawal(classification_function=1, perturbation=0.05, seed=seed)
@@ -117,6 +128,7 @@ class DriftingAgrawal(datasets.base.SyntheticDataset):
 
 
 class DriftingRBF(RandomRBFDrift):
+    # used change_speeds: 0.001 and 0.0001
     def __init__(self, change_speed, seed=42):
         super().__init__(
             seed_model=seed,
@@ -124,12 +136,13 @@ class DriftingRBF(RandomRBFDrift):
             n_classes=5,
             n_features=10,
             n_centroids=50,
-            change_speed=change_speed,  # 0.001 and 0.0001
+            change_speed=change_speed,
             n_drift_centroids=50
         )
 
 
 class DriftingLED(datasets.base.SyntheticDataset):
+    # used widths: 50 and 50k
     def __init__(self, width, seed=42):
         super().__init__(n_features=24, n_classes=10, n_outputs=1, task=datasets.base.MULTI_CLF)
         _led1 = LEDDrift(noise_percentage=0.1, irrelevant_features=True, n_drift_features=1, seed=seed)

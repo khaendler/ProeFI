@@ -21,7 +21,7 @@ def salary_drift(num_instances: int, instance_idx: int, rng: np.random.RandomSta
 
 
 def load_thesis_datasets(num_instances=1000000, pertubation=0, seed=None):
-    """ Loads the datasets used in the thesis.
+    """ Loads the datasets used in my bachelor's thesis.
 
     :param num_instances: Number of instances in the dataset.
     :param pertubation: Noise percentage.

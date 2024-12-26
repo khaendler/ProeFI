@@ -13,6 +13,10 @@ from scaler.MinMaxScaler import MinMaxScaler
 
 
 class HTMerit(HoeffdingTreeClassifier):
+    """ Hoeffding tree to experiment with the merit for splitting.
+
+    Note: This works with river versions 0.16.0. Later versions may not be supported.
+    """
     def __init__(
             self,
             grace_period: int = 200,

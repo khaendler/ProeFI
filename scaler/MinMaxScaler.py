@@ -10,7 +10,6 @@ class MinMaxScaler:
     ----------
     min : Instances of `stats.Min`.
     max : Instances of `stats.Max`.
-
     """
 
     def __init__(self):
