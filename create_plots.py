@@ -4,13 +4,25 @@ from utils.io_helpers import load
 from data.utils import load_thesis_datasets
 from utils.plotting import plot_differences
 from utils.evaluate_multiple import evaluate_multiple
-from utils.compute_averages import compute_total_avg
+from utils.compute_averages import compute_total_avg, compute_stats_avgs
 
-from tree.efdt import EFDT
-from tree.hoeffding_pruning_tree import HoeffdingPruningTree
 
-from river.tree.hoeffding_tree_classifier import HoeffdingTreeClassifier
-from river.tree.hoeffding_adaptive_tree_classifier import HoeffdingAdaptiveTreeClassifier
+# TODO: Load all results and average if mulitple seeds were used.
+# load (into one list)
+# compute_stats_avgs
+
+# TODO: Plot only the two HT variants for a comparison.
+# plot_differences
+...
+
+# TODO: Plot only the two AdwinHPT variants for a comparison.
+# plot_differences
+...
+
+# TODO: PLOT HT, HAT, EFDT, AdwinHPT and potentially the merit versions.
+# plot_differences
+...
+
 
 model_names = [#"HT",
                #"efdt",
