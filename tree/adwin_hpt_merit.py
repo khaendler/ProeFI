@@ -1,5 +1,6 @@
 from river.tree.splitter import Splitter
 from tree.adwin_hpt import AdwinHPT
+from scaler.MinMaxScaler import MinMaxScaler
 
 
 class AdwinHPTMerit(AdwinHPT):
@@ -22,7 +23,6 @@ class AdwinHPTMerit(AdwinHPT):
             stop_mem_management: bool = False,
             remove_poor_attrs: bool = False,
             merit_preprune: bool = True,
-            importance_threshold: float = 0.02,
             pruner: str = "complete",
             seed: int = None
     ):
@@ -42,10 +42,11 @@ class AdwinHPTMerit(AdwinHPT):
             stop_mem_management=stop_mem_management,
             remove_poor_attrs=remove_poor_attrs,
             merit_preprune=merit_preprune,
-            importance_threshold=importance_threshold,
             pruner=pruner,
             seed=seed
         )
+
+        self.scaler = MinMaxScaler()
 
     def _include_fi_in_merit(self, split_suggestions):
         """ Includes scaled FI in the merit of each feature. """
