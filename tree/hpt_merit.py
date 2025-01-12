@@ -1,11 +1,11 @@
 from river.tree.splitter import Splitter
 
-from tree.adwin_hpt import AdwinHPT
+from tree.hoeffding_pruning_tree import HPT
 from scaler.MinMaxScaler import MinMaxScaler
 
 
-class AdwinHPTMerit(AdwinHPT):
-    """ AdwinHPT to experiment with the merit for pruning. """
+class HPTMerit(HPT):
+    """ HPT to experiment with the merit for pruning. """
 
     def __init__(
             self,
