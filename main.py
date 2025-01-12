@@ -28,15 +28,15 @@ if __name__ == '__main__':
               ("hat_seed41", HoeffdingAdaptiveTreeClassifier(seed=41)),
               ("hat_seed42", HoeffdingAdaptiveTreeClassifier(seed=42)),
               ("efdt", EFDT()),
-              ("hpt_seed40", HPT(seed=40)),
-              ("hpt_seed41", HPT(seed=41)),
-              ("hpt_seed42", HPT(seed=42)),
-              ("hpt_merit_seed40", HPTMerit(seed=40)),
-              ("hpt_merit_seed41", HPTMerit(seed=41)),
-              ("hpt_merit_seed42", HPTMerit(seed=42)),
-              ("hpt_convex_merit_seed40", HPTConvexMerit(seed=40)),
-              ("hpt_convex_merit_seed41", HPTConvexMerit(seed=41)),
-              ("hpt_convex_merit_seed42", HPTConvexMerit(seed=42))
+              ("hpt_seed40", HPT(max_depth=None, seed=40)),
+              ("hpt_seed41", HPT(max_depth=None, seed=41)),
+              ("hpt_seed42", HPT(max_depth=None, seed=42)),
+              ("hpt_merit_seed40", HPTMerit(max_depth=None, seed=40)),
+              ("hpt_merit_seed41", HPTMerit(max_depth=None, seed=41)),
+              ("hpt_merit_seed42", HPTMerit(max_depth=None, seed=42)),
+              ("hpt_convex_merit_seed40", HPTConvexMerit(alpha=0.5, max_depth=None, seed=40)),
+              ("hpt_convex_merit_seed41", HPTConvexMerit(alpha=0.5, max_depth=None, seed=41)),
+              ("hpt_convex_merit_seed42", HPTConvexMerit(alpha=0.5, max_depth=None, seed=42))
               ]
 
     datasets = [("airlines", lambda: Airlines()),
