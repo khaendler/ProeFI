@@ -8,8 +8,9 @@ from river.datasets import Elec2
 
 from tree.efdt import EFDT
 from tree.ht_merit import HTMerit
-from tree.adwin_hpt import AdwinHPT
-from tree.adwin_hpt_merit import AdwinHPTMerit
+from tree.hoeffding_pruning_tree import HPT
+from tree.hpt_merit import HPTMerit
+from tree.hpt_convex_merit import HPTConvexMerit
 
 from data.datasets.experiment_datasets import *
 from utils.io_helpers import save
@@ -27,12 +28,15 @@ if __name__ == '__main__':
               ("hat_seed41", HoeffdingAdaptiveTreeClassifier(seed=41)),
               ("hat_seed42", HoeffdingAdaptiveTreeClassifier(seed=42)),
               ("efdt", EFDT()),
-              ("adwin_hpt_seed40", AdwinHPT(seed=40)),
-              ("adwin_hpt_seed41", AdwinHPT(seed=41)),
-              ("adwin_hpt_seed42", AdwinHPT(seed=42)),
-              ("adwin_hpt_merit_seed40", AdwinHPTMerit(seed=40)),
-              ("adwin_hpt_merit_seed41", AdwinHPTMerit(seed=41)),
-              ("adwin_hpt_merit_seed42", AdwinHPTMerit(seed=42))
+              ("hpt_seed40", HPT(seed=40)),
+              ("hpt_seed41", HPT(seed=41)),
+              ("hpt_seed42", HPT(seed=42)),
+              ("hpt_merit_seed40", HPTMerit(seed=40)),
+              ("hpt_merit_seed41", HPTMerit(seed=41)),
+              ("hpt_merit_seed42", HPTMerit(seed=42)),
+              ("hpt_convex_merit_seed40", HPTConvexMerit(seed=40)),
+              ("hpt_convex_merit_seed41", HPTConvexMerit(seed=41)),
+              ("hpt_convex_merit_seed42", HPTConvexMerit(seed=42))
               ]
 
     datasets = [("airlines", lambda: Airlines()),
@@ -49,7 +53,7 @@ if __name__ == '__main__':
                 ("led_g", lambda: DriftingLED(width=50000).take(10**6))
                 ]
 
-    data_name, data_generator = datasets[0]  # choose the dataset, 0-11
+    data_name, data_generator = datasets[6]  # choose the dataset, 0-11
     for (model_name, model) in models:
         data = data_generator()
 
@@ -87,7 +91,7 @@ if __name__ == '__main__':
         save(n_nodes, f"results/n_nodes/{model_name}_{data_name}.npy")
 
         # Stores feature importance values if the model collected any.
-        if isinstance(model, AdwinHPT):
+        if isinstance(model, HPT):
             save(model.collected_importance_values, f"results/fi_values/{model_name}_{data_name}.npy")
 
         avg_total_acc = np.mean(acc_values)

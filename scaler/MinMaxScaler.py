@@ -1,3 +1,5 @@
+import math
+
 from river.stats import Min, Max
 
 
@@ -26,7 +28,9 @@ class MinMaxScaler:
     def transform_one(self, x):
 
         def safe_div(a, b):
-            return a / b if b else 0.0
+            if b == 0 or math.isinf(b):
+                return 0.0
+            return a / b
 
         return {
             i: safe_div(xi - self.min.get(), self.max.get() - self.min.get())
