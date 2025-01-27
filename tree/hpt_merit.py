@@ -1,10 +1,9 @@
 from river.tree.splitter import Splitter
 
-from tree.hoeffding_pruning_tree import HPT
-from scaler.MinMaxScaler import MinMaxScaler
+from tree.hoeffding_pruning_tree import HoeffdingPruningTree
 
 
-class HPTMerit(HPT):
+class HPTMerit(HoeffdingPruningTree):
     """ HPT to experiment with the merit for pruning. """
 
     def __init__(
@@ -47,11 +46,10 @@ class HPTMerit(HPT):
             seed=seed
         )
 
-        self.scaler = MinMaxScaler()
 
     def _include_fi_in_merit(self, split_suggestions):
         """ Includes scaled FI in the merit of each feature. """
-        self.scaled_fi = self.scaler.transform_one(self.incremental_pfi.importance_values)
+        self.scaled_fi = self.incremental_pfi.normalized_importance_values
         for branch in split_suggestions:
             if branch.feature in self.incremental_pfi.importance_values.keys():
                 branch.merit *= self.scaled_fi[branch.feature]

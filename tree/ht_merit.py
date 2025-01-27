@@ -1,3 +1,5 @@
+import typing
+
 from river.drift.adwin import ADWIN
 from river.tree.nodes.leaf import HTLeaf
 from river.tree.nodes.branch import DTBranch
@@ -5,11 +7,7 @@ from river.tree.splitter import Splitter
 from river.metrics import Accuracy
 from river.tree import HoeffdingTreeClassifier
 
-from reproducible_ipfi.ipfi import IPFI
-from ixai.utils.wrappers import RiverWrapper
-from ixai.visualization import FeatureImportancePlotter
-
-from scaler.MinMaxScaler import MinMaxScaler
+from ipfi.explainer import IncrementalPFI
 
 
 class HTMerit(HoeffdingTreeClassifier):
@@ -54,14 +52,12 @@ class HTMerit(HoeffdingTreeClassifier):
             merit_preprune=merit_preprune,
         )
 
-        self.incremental_pfi = None
-        self.pfi_plotter = None
+        self.incremental_pfi: typing.Optional[IncrementalPFI] = None
         self.feature_names = None
         self.seed = seed
 
         # For threshold
         self.importance_adwin = ADWIN()
-        self.scaler = MinMaxScaler()
 
     @property
     def root(self):
@@ -73,7 +69,11 @@ class HTMerit(HoeffdingTreeClassifier):
 
     @property
     def collected_importance_values(self):
-        return self.pfi_plotter.y_data
+        return self.incremental_pfi.collected_importance_values
+
+    @property
+    def collected_normalized_importance_values(self):
+        return self.incremental_pfi.collected_normalized_importance_values
 
     def learn_one(self, x, y, *, sample_weight=1.0):
         # Initialize the incremental PFI instance.
@@ -82,7 +82,7 @@ class HTMerit(HoeffdingTreeClassifier):
             self._create_ipfi()
 
         self._update_ipfi(x, y)
-        super().learn_one(x, y, sample_weight=1.0)
+        super().learn_one(x, y, w=1.0)
 
     def _attempt_to_split(self, leaf: HTLeaf, parent: DTBranch, parent_branch: int, **kwargs):
         """Attempt to split a leaf.
@@ -173,26 +173,21 @@ class HTMerit(HoeffdingTreeClassifier):
                 self._enforce_size_limit()
 
     def _create_ipfi(self):
-        self.incremental_pfi = IPFI(
-            model_function=RiverWrapper(self.predict_one),
+        self.incremental_pfi = IncrementalPFI(
+            model_function=self.predict_one,
             loss_function=Accuracy(),
-            feature_names=self.feature_names,
             smoothing_alpha=0.001,
-            n_inner_samples=5,
             seed=self.seed
         )
 
-        self.pfi_plotter = FeatureImportancePlotter(feature_names=self.feature_names)
 
     def _update_ipfi(self, x, y):
         """Updates iPFI, PFI plotter and the list of current important features based on the importance threshold."""
-        inc_fi_pfi = self.incremental_pfi.explain_one(x, y)
-        self.pfi_plotter.update(inc_fi_pfi)
-        self.scaler.learn_one(self.importance_values)
+        self.incremental_pfi.explain_one(x, y)
 
     def _include_fi_in_merit(self, split_suggestions):
         """ Includes scaled FI in the merit of each feature. """
-        self.scaled_fi = self.scaler.transform_one(self.incremental_pfi.importance_values)
+        self.scaled_fi = self.incremental_pfi.normalized_importance_values
         for branch in split_suggestions:
             if branch.feature in self.incremental_pfi.importance_values.keys():
                 branch.merit *= self.scaled_fi[branch.feature]

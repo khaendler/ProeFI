@@ -1,11 +1,10 @@
 import math
 from river.tree.splitter import Splitter
 
-from tree.hoeffding_pruning_tree import HPT
-from scaler.MinMaxScaler import MinMaxScaler
+from tree.hoeffding_pruning_tree import HoeffdingPruningTree
 
 
-class HPTConvexMerit(HPT):
+class HPTConvexMerit(HoeffdingPruningTree):
     """ HPT to experiment with a convex merit for pruning.
     merit = ((1 - alpha) * log2(C) * scaled_FI) + (alpha * info_gain)
     """
@@ -52,11 +51,10 @@ class HPTConvexMerit(HPT):
         )
 
         self.alpha = alpha
-        self.scaler = MinMaxScaler()
 
     def _include_fi_in_merit(self, split_suggestions):
         """ Includes scaled FI in the merit of each feature. """
-        self.scaled_fi = self.scaler.transform_one(self.incremental_pfi.importance_values)
+        self.scaled_fi = self.incremental_pfi.normalized_importance_values
         num_classes = len(split_suggestions) - 1
         for branch in split_suggestions:
             if branch.feature in self.incremental_pfi.importance_values.keys():

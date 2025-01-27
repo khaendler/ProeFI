@@ -7,20 +7,18 @@ from river import base
 from river.utils.norm import normalize_values_in_dict
 
 from river.metrics import Accuracy
-from river.tree import HoeffdingTreeClassifier
-from reproducible_ipfi.ipfi import IPFI
-from ixai.utils.wrappers import RiverWrapper
-from ixai.visualization import FeatureImportancePlotter
 from river.drift.adwin import ADWIN
 
 from river.tree.nodes.leaf import HTLeaf
 from river.tree.nodes.branch import DTBranch
 from river.tree.splitter import Splitter
+from river.tree import HoeffdingTreeClassifier
 
+from ipfi.explainer import IncrementalPFI
 from pruner.complete_pruner import CompletePruner
 from pruner.selective_pruner import SelectivePruner
 
-from scaler.MinMaxScaler import MinMaxScaler
+
 from tree.nodes.HTLeafWithPruneInfo import (
     HTLeafWithPruneInfo,
     LeafMajorityClassWithPruneInfo,
@@ -39,7 +37,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-class HPT(HoeffdingTreeClassifier):
+class HoeffdingPruningTree(HoeffdingTreeClassifier):
     """Hoeffding Pruning Tree using the VFDT classifier with incremental PFI to prune the tree.
     HPT uses the ADWIN estimation as the importance threshold to determine whether a feature is important
     enough to retain the nodes split on it.
@@ -111,6 +109,8 @@ class HPT(HoeffdingTreeClassifier):
         nominal_attributes: list = None,
         splitter: Splitter = None,
         binary_split: bool = False,
+        min_branch_fraction: float = 0.01,
+        max_share_to_split: float = 0.99,
         max_size: float = 100.0,
         memory_estimate_period: int = 1000000,
         stop_mem_management: bool = False,
@@ -131,6 +131,8 @@ class HPT(HoeffdingTreeClassifier):
             nominal_attributes=nominal_attributes,
             splitter=splitter,
             binary_split=binary_split,
+            min_branch_fraction=min_branch_fraction,
+            max_share_to_split=max_share_to_split,
             max_size=max_size,
             memory_estimate_period=memory_estimate_period,
             stop_mem_management=stop_mem_management,
@@ -138,8 +140,7 @@ class HPT(HoeffdingTreeClassifier):
             merit_preprune=merit_preprune,
         )
 
-        self.incremental_pfi = None
-        self.pfi_plotter = None
+        self.incremental_pfi: typing.Optional[IncrementalPFI] = None
         self.importance_threshold = 0.02  # standard value for the beginning
 
         self.feature_names = None
@@ -165,7 +166,11 @@ class HPT(HoeffdingTreeClassifier):
 
     @property
     def collected_importance_values(self):
-        return self.pfi_plotter.y_data
+        return self.incremental_pfi.collected_importance_values
+
+    @property
+    def collected_normalized_importance_values(self):
+        return self.incremental_pfi.collected_normalized_importance_values
 
     def set_new_root(self, node: HTLeaf | DTBranch):
         self._root = node
@@ -215,7 +220,7 @@ class HPT(HoeffdingTreeClassifier):
         else:
             raise ValueError(f"Invalid pruner type: {pruner}. Valid options are 'selective' or 'complete'.")
 
-    def learn_one(self, x, y, *, sample_weight=1.0):
+    def learn_one(self, x, y, *, w=1.0):
         # Initialize the incremental PFI instance.
         if self.incremental_pfi is None:
             self.feature_names = list(x.keys())
@@ -241,7 +246,7 @@ class HPT(HoeffdingTreeClassifier):
 
         self.classes.add(y)
 
-        self._train_weight_seen_by_model += sample_weight
+        self._train_weight_seen_by_model += w
 
         if self._root is None:
             self._root = self._new_leaf()
@@ -261,7 +266,7 @@ class HPT(HoeffdingTreeClassifier):
             node = self._root
 
         if isinstance(node, HTLeaf):
-            node.learn_one(x, y, sample_weight=sample_weight, tree=self)
+            node.learn_one(x, y, w=w, tree=self)
             if self._growth_allowed and node.is_active():
                 if node.depth >= self.max_depth:  # Max depth reached
                     node.deactivate()
@@ -295,7 +300,7 @@ class HPT(HoeffdingTreeClassifier):
                 if isinstance(node, HTLeaf):
                     break
             # Learn from the sample
-            node.learn_one(x, y, sample_weight=sample_weight, tree=self)
+            node.learn_one(x, y, w=w, tree=self)
 
         if self._train_weight_seen_by_model % self.memory_estimate_period == 0:
             self._estimate_model_size()
@@ -329,6 +334,7 @@ class HPT(HoeffdingTreeClassifier):
         """
         if not leaf.observed_class_distribution_is_pure():  # type: ignore
             split_criterion = self._new_split_criterion()
+
             best_split_suggestions = leaf.best_split_suggestions(split_criterion, self)
             best_split_suggestions = self._include_fi_in_merit(best_split_suggestions)
             best_split_suggestions.sort()
@@ -392,25 +398,18 @@ class HPT(HoeffdingTreeClassifier):
                 self._enforce_size_limit()
 
     def _create_ipfi(self):
-        self.incremental_pfi = IPFI(
-            model_function=RiverWrapper(self.predict_one),
+        self.incremental_pfi = IncrementalPFI(
+            model_function=self.predict_one,
             loss_function=Accuracy(),
-            feature_names=self.feature_names,
             smoothing_alpha=0.001,
-            n_inner_samples=5,
             seed=self.seed
         )
-
-        self.pfi_plotter = FeatureImportancePlotter(feature_names=self.feature_names)
 
     def _update_ipfi(self, x, y):
         """Updates iPFI, PFI plotter and the list of current important features based on the importance threshold."""
 
         # explaining
-        inc_fi_pfi = self.incremental_pfi.explain_one(x, y)
-
-        # update visualizer
-        self.pfi_plotter.update(inc_fi_pfi)
+        self.incremental_pfi.explain_one(x, y)
 
         # Check if any feature's importance value meets or exceeds the threshold.
         # If so, select those features as important. Otherwise, consider all features as important.
@@ -426,52 +425,11 @@ class HPT(HoeffdingTreeClassifier):
         self.importance_threshold = self.importance_adwin.estimation
 
     def _include_fi_in_merit(self, split_suggestions):
-        """ Nothing. Currently only for AdwinHPTMerit """
+        """ Nothing. Currently only for HPTMerit """
         return split_suggestions
 
-    def plot_pfi(
-            self,
-            names_to_highlight: list,
-            title: str = None,
-            model_performances: list = None,
-            metric_name: str = None,
-            save_name: str = None
-    ):
-        """Plots the feature importance values up to the current point in time.
-
-        Parameters
-        ----------
-        names_to_highlight
-            The names of the features to highlight in the plot.
-        title
-            The title of the plot.
-        model_performances
-            A list of performances of the model. If given, a performance plot will be added.
-        metric_name
-            The name of the metric used for the performance values.
-        save_name
-            If given, saves the plot with the name given.
-        """
-
-        metric_name = "Perf." if metric_name is None else metric_name
-        performance_kw = {
-            "y_min": 0, "y_max": 1, "y_label": metric_name
-        }
-
-        fi_kw = {
-            "names_to_highlight": names_to_highlight,
-            "legend_style": {
-                "fontsize": "small", 'title': 'features', "ncol": 1,
-                "loc": 'upper left', "bbox_to_anchor": (0, 1)},
-            "title": title
-        }
-        model_performances = None if model_performances is None else {metric_name: model_performances}
-        self.pfi_plotter.plot(
-            save_name=save_name,
-            model_performances=model_performances,
-            performance_kw=performance_kw,
-            **fi_kw
-        )
+    def plot_feature_importance(self, names_to_highlight, normalized=False):
+        self.incremental_pfi.plot(names_to_highlight=names_to_highlight, normalized=normalized)
 
     def draw(self, max_depth: int | None = None):
         """Draw the tree using the `graphviz` library. Includes prune_info of leaves.

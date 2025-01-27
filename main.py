@@ -2,16 +2,14 @@ import sys
 import numpy as np
 from river.metrics import RollingROCAUC, Accuracy, CohenKappa
 from river.utils import Rolling
-from river.tree.hoeffding_adaptive_tree_classifier import HoeffdingAdaptiveTreeClassifier
-from river.tree.hoeffding_tree_classifier import HoeffdingTreeClassifier
+
+from river.tree import (HoeffdingTreeClassifier,
+                        HoeffdingAdaptiveTreeClassifier,
+                        ExtremelyFastDecisionTreeClassifier)
+
 from river.datasets import Elec2
 
-from tree.efdt import EFDT
-from tree.ht_merit import HTMerit
-from tree.hoeffding_pruning_tree import HPT
-from tree.hpt_merit import HPTMerit
-from tree.hpt_convex_merit import HPTConvexMerit
-
+from tree import HoeffdingPruningTree, HPTMerit, HTMerit, HPTConvexMerit
 from data.datasets.experiment_datasets import *
 from utils.io_helpers import save
 
@@ -27,10 +25,10 @@ if __name__ == '__main__':
               ("hat_seed40", HoeffdingAdaptiveTreeClassifier(seed=40)),
               ("hat_seed41", HoeffdingAdaptiveTreeClassifier(seed=41)),
               ("hat_seed42", HoeffdingAdaptiveTreeClassifier(seed=42)),
-              ("efdt", EFDT()),
-              ("hpt_seed40", HPT(max_depth=None, seed=40)),
-              ("hpt_seed41", HPT(max_depth=None, seed=41)),
-              ("hpt_seed42", HPT(max_depth=None, seed=42)),
+              ("efdt", ExtremelyFastDecisionTreeClassifier()),
+              ("hpt_seed40", HoeffdingPruningTree(max_depth=None, seed=40)),
+              ("hpt_seed41", HoeffdingPruningTree(max_depth=None, seed=41)),
+              ("hpt_seed42", HoeffdingPruningTree(max_depth=None, seed=42)),
               ("hpt_merit_seed40", HPTMerit(max_depth=None, seed=40)),
               ("hpt_merit_seed41", HPTMerit(max_depth=None, seed=41)),
               ("hpt_merit_seed42", HPTMerit(max_depth=None, seed=42)),
@@ -91,7 +89,7 @@ if __name__ == '__main__':
         save(n_nodes, f"results/n_nodes/{model_name}_{data_name}.npy")
 
         # Stores feature importance values if the model collected any.
-        if isinstance(model, HPT):
+        if isinstance(model, HoeffdingPruningTree):
             save(model.collected_importance_values, f"results/fi_values/{model_name}_{data_name}.npy")
 
         avg_total_acc = np.mean(acc_values)

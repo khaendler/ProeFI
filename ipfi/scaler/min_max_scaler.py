@@ -3,6 +3,9 @@ import math
 from river.stats import Min, Max
 
 
+__all__ = ["MinMaxScaler"]
+
+
 class MinMaxScaler:
     """Scales the data to a fixed range from 0 to 1 with a global min max.
 
@@ -18,14 +21,14 @@ class MinMaxScaler:
         self.min = Min()
         self.max = Max()
 
-    def learn_one(self, x):
+    def learn_one(self, x: dict):
         for _, xi in x.items():
             self.min.update(xi)
             self.max.update(xi)
 
         return self
 
-    def transform_one(self, x):
+    def transform_one(self, x: dict):
 
         def safe_div(a, b):
             if b == 0 or math.isinf(b):
