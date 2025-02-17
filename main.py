@@ -12,16 +12,33 @@ from river.datasets import Elec2
 from tree import HoeffdingPruningTree, HPTMerit, HTMerit, HPTConvexMerit
 from data.datasets.experiment_datasets import *
 from utils.io_helpers import save
+from pathlib import Path
+import argparse
+# from create_plots import plot_all_data
 
 
 # Evaluates each model on a chosen dataset. Collects number of nodes, accuracy values, kappa scores and
 # feature importance values (if available) for each instance.
-if __name__ == '__main__':
+Path("./results").mkdir(parents=True, exist_ok=True)
+Path("./results/acc_values").mkdir(parents=True, exist_ok=True)
+Path("./results/kappa_values").mkdir(parents=True, exist_ok=True)
+Path("./results/n_nodes").mkdir(parents=True, exist_ok=True)
+Path("./results/fi_values").mkdir(parents=True, exist_ok=True)
+
+
+def main():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--dataset", type=int)
+    args = parser.parse_args()
+    dataset_idx = 0
+    if args.dataset is not None:
+        dataset_idx = args.dataset
 
     models = [("ht", HoeffdingTreeClassifier()),
-              ("ht_merit", HTMerit(seed=40)),
-              ("ht_merit", HTMerit(seed=41)),
-              ("ht_merit", HTMerit(seed=42)),
+              ("ht_merit_seed40", HTMerit(seed=40)),
+              ("ht_merit_seed41", HTMerit(seed=41)),
+              ("ht_merit_seed42", HTMerit(seed=42)),
               ("hat_seed40", HoeffdingAdaptiveTreeClassifier(seed=40)),
               ("hat_seed41", HoeffdingAdaptiveTreeClassifier(seed=41)),
               ("hat_seed42", HoeffdingAdaptiveTreeClassifier(seed=42)),
@@ -51,7 +68,7 @@ if __name__ == '__main__':
                 ("led_g", lambda: DriftingLED(width=50000).take(10**6))
                 ]
 
-    data_name, data_generator = datasets[6]  # choose the dataset, 0-11
+    data_name, data_generator = datasets[dataset_idx]  # choose the dataset, 0-11
     for (model_name, model) in models:
         data = data_generator()
 
@@ -104,3 +121,6 @@ if __name__ == '__main__':
             "------------------------------------------------------------"
         )
 
+
+if __name__ == '__main__':
+    main()
