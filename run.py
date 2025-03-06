@@ -9,6 +9,7 @@ from data.datasets.experiment_datasets import *
 from utils.io_helpers import save
 from pathlib import Path
 from sklearn.metrics import roc_auc_score
+import random
 
 Path("./results").mkdir(parents=True, exist_ok=True)
 Path("./results/acc_values").mkdir(parents=True, exist_ok=True)
@@ -16,6 +17,9 @@ Path("./results/kappa_values").mkdir(parents=True, exist_ok=True)
 Path("./results/n_nodes").mkdir(parents=True, exist_ok=True)
 Path("./results/fi_values").mkdir(parents=True, exist_ok=True)
 Path("./results/summary").mkdir(parents=True, exist_ok=True)
+
+datasets_n_classes = {"airlines": 2, "electricity": 2, "kdd99": 23, "wisdm": 6, "covtype": 7, "nomao": 2,
+                      "agr_a": 2, "agr_g": 2, "rbf_f": 5,  "rbf_m": 5, "led_a": 10, "led_g": 10 }
 
 
 # Evaluates each model on a chosen dataset. Collects number of nodes, accuracy values, kappa scores and
@@ -47,7 +51,7 @@ def run_evaluation(data_name, seed):
     data_generator = datasets[data_name]
     for (model_name, model) in models:
         data = data_generator()
-        evaluator = EvaluatorTree(n_classes=data.n_classes if data.n_classes is not None else 2)
+        evaluator = EvaluatorTree(n_classes=datasets_n_classes[data_name])
 
         print(f"Starting evaluation for {model_name} on {data_name}...\n")
         for i, (x, y) in enumerate(data, start=1):
@@ -81,6 +85,11 @@ class EvaluatorTree:
         self.positive_class = 1
         self.n_classes = n_classes
 
+    def normalize(self, y_pred):
+        if sum(y_pred) == 0:
+            y_pred[random.randint(0, len(y_pred) - 1)] = 1.
+        return [float(y_i) / sum(y_pred) for y_i in y_pred]
+
     def get_auroc(self):
         if self.n_classes > 2:
             auroc = roc_auc_score(self.y_target_list, self.y_pred_list, multi_class='ovr')
@@ -97,6 +106,9 @@ class EvaluatorTree:
         if len(y_pred) != self.n_classes:
             while len(y_pred) != self.n_classes:
                 y_pred.append(0)
+        # Normalize y_pred if not yet done (e.g., avoid precision errors)
+        if sum(y_pred) != 1:
+            y_pred = self.normalize(y_pred)
         # Predictive performance
         self.accuracy.update(y_target, y_pred_label)
         self.acc_values.append(self.accuracy.get())

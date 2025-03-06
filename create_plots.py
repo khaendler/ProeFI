@@ -11,6 +11,8 @@ import scikit_posthocs as sp
 import matplotlib.pyplot as plt
 import scipy.stats as ss
 import pandas as pd
+import os
+from critdd import Diagram
 
 # TODO: Load all results and average if mulitple seeds were used.
 # load (into one list)
@@ -32,17 +34,88 @@ model_names = ["ht",
                "ht_merit",
                "hat",
                "efdt",
-               "adwin_hpt",
-               "adwin_hpt_merit",
+               "hpt",
+               "hpt_merit",
+               "hpt_convex_merit"
                ]
 
-data_names = ["airlines", "electricity", "wisdm", "covtype", "nomao",
-              # "kdd99",
+data_names = ["airlines", "electricity",  "covtype", "nomao",
+              "kdd99",
+              "wisdm",
               "agr_a", "agr_g", "rbf_f", "rbf_m", "led_a", "led_g"]
 seeds = [40, 41, 42]
 
 plot_dir = "./results/plots"
 Path(plot_dir).mkdir(parents=True, exist_ok=True)
+
+
+def get_df_summary(metric, data_dir="./results"):
+    table = pd.DataFrame(index=data_names, columns=model_names)
+    for model in model_names:
+        for data_name in data_names:
+            value = 0
+            seeds_seen = 0
+            for seed in seeds:
+                file_path = f"{data_dir}/summary/{model}_seed{seed}_{data_name}.csv"
+                if os.path.exists(file_path):
+                    df = pd.read_csv(file_path)
+                    value += df.iloc[0][metric]
+                    seeds_seen += 1
+                else:
+                    try:
+                        df = pd.read_csv(f"{data_dir}/summary/{model}_{data_name}.csv")
+                        value += df.iloc[0][metric]
+                        seeds_seen += 1
+                        break
+                    except:
+                        pass
+
+            if seeds_seen > 0:
+                value /= seeds_seen
+                table.at[data_name, model] = value
+    table.index = table.index.str.replace("_", " ")
+    return table
+
+
+def make_latex_table(metric, highlight_max=True, precision=3):
+    table = get_df_summary(metric=metric)
+    # Add mean ranks
+    ranks = table.rank(axis=1, method='average', ascending=False)
+    mean_ranks = ranks.mean()
+    table.loc['Mean Rank'] = mean_ranks
+    if highlight_max:
+        print(table.style.highlight_max(axis=1, props="textbf:--rwrap;").format(precision=precision).to_latex())
+    else:
+        print(table.style.highlight_min(axis=1, props="textbf:--rwrap;").format(precision=precision).to_latex())
+
+
+# https://mirkobunse.github.io/critdd/
+# Install with: pip install 'critdd @ git+https://github.com/mirkobunse/critdd'
+def get_cridd(metric):
+    df = get_df_summary(metric=metric)
+    df = df.rename_axis('dataset_name', axis=0)
+    df = df.rename_axis('classifier_name', axis=1)
+    df = df.astype(np.float64)
+
+    # create a CD diagram from the Pandas DataFrame
+    diagram = Diagram(
+        df.to_numpy(),
+        treatment_names=df.columns,
+        maximize_outcome=True
+    )
+
+    # inspect average ranks and groups of statistically indistinguishable treatments
+    diagram.average_ranks  # the average rank of each treatment
+    diagram.get_groups(alpha=.05, adjustment="holm")
+
+    # export the diagram to a file
+    diagram.to_file(
+        f"./results/plots/critdd-{metric}.tex",
+        alpha=.05,
+        adjustment="holm",
+        reverse_x=True,
+        # axis_options={"title": f"{base_learner}-{args}"},
+    )
 
 
 def get_metrics_from_all_data():
@@ -54,7 +127,7 @@ def get_metrics_from_all_data():
         metrics[data_name] = {}
         for model_name in model_names:
             average_nnodes, average_kappas, average_accuracies = None, None, None
-            if model_name not in ['ht', 'efdt', 'ht_merit']:  # todo remove ht_merit from here
+            if model_name not in ['ht', 'efdt']:  # HT and EFDT are deterministic
                 for i, seed in enumerate(seeds):
                     current_nnodes = np.array(load(f"results/n_nodes/{model_name}_seed{seed}_{data_name}.npy"))
                     current_kappas = np.array(load(f"results/kappa_values/{model_name}_seed{seed}_{data_name}.npy"))
@@ -106,139 +179,9 @@ def plot_fi_importance_all_data():
                                         save_name=f"{plot_dir}/fi_value_{data_name}_{model_name}")
 
 
-def create_latex_table(metric_name='accuracies', mark_min=False):
-    print(f"---- {metric_name} ----")
-    metrics = get_metrics_from_all_data()
-    column_names = None
-    table_str = ""
-    for data_name in metrics.keys():
-        data_n = data_name.replace('_', '\\_')
-        table_str += f"{data_n} & "
-        if column_names is None:
-            column_names = [col.replace('_', ' ') for col in metrics[data_name].keys()]
-            column_names.insert(0, 'Data stream')
-        values = []
-        for model_name in metrics[data_name].keys():
-            values.append(np.mean(metrics[data_name][model_name][metric_name][model_name]))
-        if mark_min:
-            marked_val = round(min(values), 2)
-        else:
-            marked_val = round(max(values), 2)
-        for acc in values:
-            if not mark_min and round(acc, 2) >= marked_val or mark_min and round(acc, 2) <= marked_val:
-                table_str += f"\\textbf{{{acc:.2f}}} &"
-            else:
-                table_str += f"{acc:.2f} &"
-        table_str = table_str[:-1]  # Remove last "&"
-        table_str += "\\\\\n"
-    print(" & ".join(column_names), "\\\\\n\\hline")
-    print(table_str)
-
-
-# https://scikit-posthocs.readthedocs.io/en/latest/tutorial.html
-def critical_difference_diagram():
-    metrics = get_metrics_from_all_data()
-    data = []
-    data_dict = {}
-    for data_name in metrics.keys():
-        values = []
-        for model_name in metrics[data_name].keys():
-            acc = np.mean(metrics[data_name][model_name]['accuracies'][model_name])
-            if model_name in data_dict:
-                data_dict[model_name].append(acc)
-            else:
-                data_dict[model_name] = [acc]
-            values.append(acc)
-        data.append(values)
-    # data = np.array(data)
-    print(data_dict)
-
-    data_df = (
-        pd.DataFrame(data_dict)
-        .rename_axis('cv_fold')
-        .melt(
-            var_name='estimator',
-            value_name='score',
-            ignore_index=False,
-        )
-        .reset_index()
-    )
-    print(data_df)
-    avg_rank = data_df.groupby('cv_fold').score.rank(pct=True).groupby(data_df.estimator).mean()
-    print(avg_rank)
-    ss.friedmanchisquare(*data_dict.values())
-
-    data_df['block_id'] = data_df.groupby(['cv_fold', 'estimator']).ngroup()
-    test_results = sp.posthoc_conover_friedman(
-        data_df,
-        melted=True,
-        block_col='cv_fold',
-        group_col='estimator',
-        y_col='score',
-        block_id_col='block_id'
-    )
-    sp.sign_plot(test_results)
-
-    plt.figure(figsize=(11, 4), dpi=100)
-    plt.title('Critical difference diagram of average accuracy ranks')
-    sp.critical_difference_diagram(avg_rank, test_results)
-
-    plt.show()
-
-
-def critical_difference_diagram_nnodes():
-    metrics = get_metrics_from_all_data()
-    data = []
-    data_dict = {}
-    for data_name in metrics.keys():
-        values = []
-        for model_name in metrics[data_name].keys():
-            acc = np.mean(metrics[data_name][model_name]['nnodes'][model_name])
-            if model_name in data_dict:
-                data_dict[model_name].append(acc)
-            else:
-                data_dict[model_name] = [acc]
-            values.append(acc)
-        data.append(values)
-
-    data_df = (
-        pd.DataFrame(data_dict)
-        .rename_axis('cv_fold')
-        .melt(
-            var_name='estimator',
-            value_name='score',
-            ignore_index=False,
-        )
-        .reset_index()
-    )
-    print(data_df)
-    avg_rank = data_df.groupby('cv_fold').score.rank(pct=True, ascending=False).groupby(data_df.estimator).mean()
-    print(avg_rank)
-    ss.friedmanchisquare(*data_dict.values())
-
-    data_df['block_id'] = data_df.groupby(['cv_fold', 'estimator']).ngroup()
-    test_results = sp.posthoc_conover_friedman(
-        data_df,
-        melted=True,
-        block_col='cv_fold',
-        group_col='estimator',
-        y_col='score',
-        block_id_col='block_id'
-    )
-    sp.sign_plot(test_results)
-
-    plt.figure(figsize=(13, 4), dpi=100)
-    plt.title('Critical difference diagram of average number of nodes ranks')
-    sp.critical_difference_diagram(avg_rank, test_results)
-
-    plt.show()
-
-
 if __name__ == '__main__':
     # plot_performances_all_data()
     # plot_fi_importance_all_data()
-    # create_latex_table(metric_name='accuracies')
-    # create_latex_table(metric_name='kappas')
-    # create_latex_table(metric_name='nnodes', mark_min=True)
-    # critical_difference_diagram()
-    critical_difference_diagram_nnodes()
+    # make_latex_table(metric='Auroc')
+    make_latex_table(metric='Avg Node Count', highlight_max=False, precision=2)
+    get_cridd(metric='Auroc')
