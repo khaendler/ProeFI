@@ -80,7 +80,7 @@ def get_df_summary(metric, data_dir="./results"):
 def make_latex_table(metric, highlight_max=True, precision=3):
     table = get_df_summary(metric=metric)
     # Add mean ranks
-    ranks = table.rank(axis=1, method='average', ascending=False)
+    ranks = table.rank(axis=1, method='average', ascending=False if highlight_max else True)
     mean_ranks = ranks.mean()
     table.loc['Mean Rank'] = mean_ranks
     if highlight_max:
