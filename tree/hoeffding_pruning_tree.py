@@ -475,7 +475,7 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
             max_depth = -1
 
         dot = graphviz.Digraph(
-            graph_attr={"splines": "ortho", "forcelabels": "true", "overlap": "false"},
+            graph_attr={"center": "true", "splines": "ortho", "forcelabels": "true", "overlap": "false"},
             node_attr={
                 "shape": "box",
                 "penwidth": "1.2",
@@ -507,7 +507,7 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
                     text = f"{repr(child)}\nsamples: {int(child.total_weight)}\n"
                 else:
                     text = (f"{repr(child)}\nsamples: {int(child.total_weight)}\n"
-                            f"pruned {child.prune_info[1]} split node\n"
+                            f"pruned '{child.prune_info[1]}' split node\n"
                             f"at instance: {child.prune_info[0]}\n")
 
             # Pick a color, the hue depends on the class and the transparency on the distribution

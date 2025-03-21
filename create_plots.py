@@ -1,18 +1,20 @@
+import os
+import re
+
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from pathlib import Path
+import scipy.stats as ss
+import scikit_posthocs as sp
+from critdd import Diagram
 
 from utils.io_helpers import load
 from data.utils import load_thesis_datasets
 from utils.plotting import plot_differences, plot_feature_importance
 from utils.evaluate_multiple import evaluate_multiple
 from utils.compute_averages import compute_total_avg, compute_stats_avgs
-from pathlib import Path
-import numpy as np
-import scikit_posthocs as sp
-import matplotlib.pyplot as plt
-import scipy.stats as ss
-import pandas as pd
-import os
-from critdd import Diagram
+
 
 # TODO: Load all results and average if mulitple seeds were used.
 # load (into one list)
@@ -48,6 +50,66 @@ seeds = [40, 41, 42]
 plot_dir = "./results/plots"
 Path(plot_dir).mkdir(parents=True, exist_ok=True)
 
+
+def ttest(
+        metric: str,
+        data_name: str,
+        model_names: tuple[str, str] = ("hat", "hpt"),
+        data_dir: str = "./results"):
+    """
+    Performs a ttest between two given models for a given dataset.
+    :param metric: The metric to evaluate.
+    :param data_name: Name of the dataset
+    :param model_names: Names of models to compare.
+    :param data_dir: Results directory.
+    :return: p_value
+    """
+
+    model_dfs = [[] for _ in range(2)]
+    for i, model in enumerate(model_names):
+        summary_dir = os.path.join(data_dir, "summary")
+        pattern = re.compile(rf"{model}_seed(\d+)_{data_name}.csv")
+
+        for filename in os.listdir(summary_dir):
+            if pattern.match(filename):
+                file_path = os.path.join(summary_dir, filename)
+                if os.path.exists(file_path):
+                    df = pd.read_csv(file_path)
+                    model_dfs[i].append(df)
+
+    model_results = [pd.concat(frames)[metric].values for frames in model_dfs]
+    _, p_value = ss.ttest_rel(model_results[0], model_results[1])
+
+    return p_value
+
+
+def ttest_for_all_data(
+        metric: str,
+        model_names: tuple[str, str] = ("hat", "hpt"),
+        data_dir: str = "./results"):
+    """
+    Performs a ttest between two given models for all datasets.
+    :param metric: The metric to evaluate.
+    :param model_names: Names of models to compare.
+    :param data_dir: Results directory.
+    :return: {data_name, p_value}
+    """
+
+    summary_dir = os.path.join(data_dir, "summary")
+    data_names = set()
+    pattern = re.compile(rf"(?:{'|'.join(model_names)})_seed\d+_(\w+)\.csv")
+
+    for filename in os.listdir(summary_dir):
+        match = pattern.match(filename)
+        if match:
+            data_names.add(match.group(1))
+
+    results = {}
+    for data_name in data_names:
+        significant = ttest(metric, data_name, model_names, data_dir)
+        results[data_name] = significant
+
+    return results
 
 def get_df_summary(metric, data_dir="./results"):
     table = pd.DataFrame(index=data_names, columns=model_names)
