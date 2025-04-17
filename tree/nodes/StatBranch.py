@@ -59,8 +59,8 @@ class StatNumericBinaryBranch(StatDTBranch, NumericBinaryBranch):
     def repr_branch(self, index: int, shorten=False):
         if shorten:
             if index == 0:
-                return f"≤ {round(self.threshold, 4)}"
-            return f"> {round(self.threshold, 4)}"
+                return f"≤ {round(self.threshold, 2)}"
+            return f"> {round(self.threshold, 2)}"
         else:
             if index == 0:
                 return f"{self.feature} ≤ {self.threshold}"
@@ -136,7 +136,7 @@ class StatNumericMultiwayBranch(StatDTBranch, NumericMultiwayBranch):
         upper = lower + self.radius
 
         if shorten:
-            return f"[{round(lower, 4)}, {round(upper, 4)})"
+            return f"[{round(lower, 2)}, {round(upper, 2)})"
 
         return f"{lower} ≤ {self.feature} < {upper}"
 
