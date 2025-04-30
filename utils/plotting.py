@@ -1,32 +1,53 @@
 import matplotlib.pyplot as plt
-from ixai.visualization import FeatureImportancePlotter
+import itertools
 
 import numpy as np
 
-def plot_feature_importance(fi_values, names_to_highlight, title=None,
-                            model_performances=None, metric_name="Perf.", save_name=None):
+from ipfi.scaler import MinMaxScaler
 
-    feature_names = list(fi_values['importance_values'][1].keys())
-    plotter = FeatureImportancePlotter(feature_names=feature_names)
-    plotter.y_data = fi_values
-    performance_kw = {
-        "y_min": 0, "y_max": 1, "y_label": metric_name
-    }
 
-    fi_kw = {
-        "names_to_highlight": names_to_highlight,
-        "legend_style": {
-            "fontsize": "small", 'title': 'features', "ncol": 1,
-            "loc": 'upper left', "bbox_to_anchor": (0, 1)},
-        "title": title
-    }
-    model_performances = None if model_performances is None else {"Perf.": model_performances}
-    plotter.plot(
-        save_name=save_name,
-        model_performances=model_performances,
-        performance_kw=performance_kw,
-        **fi_kw
-    )
+def plot_feature_importance(fi_values, names_to_highlight, title="Feature Importance over time",
+                            metric_name="Perf.", normalized=False, save_name=None):
+    plt.style.use("bmh")
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.set_facecolor('#f8f8f8')
+
+    x = range(len(fi_values))
+    if normalized:
+        scaler = MinMaxScaler()
+        for x in fi_values:
+            scaler.learn_one(x)
+
+        fi_values = [scaler.transform_one(x) for x in fi_values]
+
+    all_keys = list(fi_values[0].keys())
+
+    default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    color_cycle = itertools.cycle(default_colors)
+
+    key_to_color = {}
+    for key in names_to_highlight:
+        key_to_color[key] = next(color_cycle)
+
+    for key in all_keys:
+        y = [row[key] for row in fi_values]
+
+        if key in names_to_highlight:
+            color = key_to_color[key]
+            label = key
+            z = 3
+        else:
+            color = 'lightgrey'
+            label = None
+            z = 1
+
+        ax.plot(x, y, color=color, label=label, linewidth=1, zorder=z)
+
+    plt.legend()
+    plt.xlabel("Instances")
+    plt.ylabel("Feature importance")
+    plt.title(title)
+    plt.show()
 
 
 def plot_differences(stats, title, ylabel, model_names, filename=None):
