@@ -176,7 +176,7 @@ def get_cridd(metric):
         alpha=.05,
         adjustment="holm",
         reverse_x=True,
-        # axis_options={"title": f"{base_learner}-{args}"},
+        # axis_options={"title": ""},
     )
 
 
