@@ -6,33 +6,68 @@ import numpy as np
 from ipfi.scaler import MinMaxScaler
 
 
-def plot_feature_importance(fi_values, names_to_highlight, title="Feature Importance over time",
-                            metric_name="Perf.", normalized=False, save_name=None):
+def plot_feature_importance(fi_values,
+                            names_to_highlight=(),
+                            top_k=None,
+                            title="Feature Importance over time",
+                            metric_name="Perf.",
+                            normalized=False,
+                            save_name=None):
+    """
+    Plot feature importance trajectories.
+
+    Parameters
+    ----------
+    fi_values : list of dict
+        A sequence of per-instance feature-importance mappings.
+    names_to_highlight : iterable of str, optional
+        Specific feature names to color/highlight.
+    top_k : int or None, default=None
+        If an integer, highlight the top k features by total importance.
+    title : str
+        Plot title.
+    metric_name : str
+        Label for the y-axis (unused in plotting code but kept for extensibility).
+    normalized : bool
+        If True, min/max normalize each feature’s time series before plotting.
+    save_name : str or None
+        If given, will save the figure to this filename.
+    """
     plt.style.use("bmh")
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.set_facecolor('#f8f8f8')
 
-    x = range(len(fi_values))
+    x = list(range(len(fi_values)))
+
+    # Optional normalization
     if normalized:
         scaler = MinMaxScaler()
-        for x in fi_values:
-            scaler.learn_one(x)
+        for row in fi_values:
+            scaler.learn_one(row)
+        fi_values = [scaler.transform_one(row) for row in fi_values]
 
-        fi_values = [scaler.transform_one(x) for x in fi_values]
-
+    # All feature keys
     all_keys = list(fi_values[0].keys())
 
+    # Determine which to highlight
+    highlight_set = set(names_to_highlight)
+
+    if top_k is not None and 0 < top_k < len(all_keys)+1:
+        # Sum absolute importance across all instances
+        totals = {key: sum(abs(row[key]) for row in fi_values) for key in all_keys}
+        # Pick top_k keys by total importance
+        top_keys = sorted(totals, key=totals.get, reverse=True)[:top_k]
+        highlight_set.update(top_keys)
+
+    # Prepare colors
     default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     color_cycle = itertools.cycle(default_colors)
+    key_to_color = {key: next(color_cycle) for key in highlight_set}
 
-    key_to_color = {}
-    for key in names_to_highlight:
-        key_to_color[key] = next(color_cycle)
-
+    # Plot every feature
     for key in all_keys:
         y = [row[key] for row in fi_values]
-
-        if key in names_to_highlight:
+        if key in key_to_color:
             color = key_to_color[key]
             label = key
             z = 3
@@ -40,13 +75,16 @@ def plot_feature_importance(fi_values, names_to_highlight, title="Feature Import
             color = 'lightgrey'
             label = None
             z = 1
-
         ax.plot(x, y, color=color, label=label, linewidth=1, zorder=z)
 
     plt.legend()
     plt.xlabel("Instances")
     plt.ylabel("Feature importance")
     plt.title(title)
+    plt.show()
+
+    if save_name:
+        fig.savefig(save_name, dpi=300, bbox_inches='tight')
     plt.show()
 
 

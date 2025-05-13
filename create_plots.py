@@ -41,11 +41,18 @@ model_names = ["ht",
                "hpt_convex_merit"
                ]
 
-data_names = ["airlines", "electricity",  "covtype", "nomao",
-              "kdd99",
-              "wisdm",
-              "agr_a", "agr_g", "rbf_f", "rbf_m", "led_a", "led_g"]
-seeds = [40, 41, 42]
+data_names = [#"airlines", "electricity",  "covtype", "nomao",
+              #"kdd99",
+              #"wisdm",
+              "agr_a",
+              #"agr_g", "rbf_f", "rbf_m", "led_a", "led_g"
+            ]
+seeds = [#40,
+         #41,
+         42,
+         #43,
+         #44
+         ]
 
 plot_dir = "./results/plots"
 Path(plot_dir).mkdir(parents=True, exist_ok=True)
@@ -232,13 +239,15 @@ def plot_performances_all_data():
 def plot_fi_importance_all_data():
     for data_name in data_names:
         # Plot feature importance
-        for model_name in ["adwin_hpt", "adwin_hpt_merit"]:
+        for model_name in ["hpt", "hpt_tau_0.1", "hpt_tau_0.2", "hpt_tau_0.3", "hpt_tau_0.4", "hpt_tau_0.5",
+                           "hpt_tau_0.01", "hpt_tau_0.02", "hpt_tau_0.03", "hpt_tau_0.04", "hpt_tau_0.05",
+                           "hpt_tau_0.06", "hpt_tau_0.07", "hpt_tau_0.08", "hpt_tau_0.09"]:
             for i, seed in enumerate(seeds[:1]):
                 fi_values = load(f"results/fi_values/{model_name}_seed{seed}_{data_name}.npy")
-                names_to_highlight = None
-                plot_feature_importance(fi_values=fi_values, names_to_highlight=names_to_highlight,
+                names_to_highlight = []
+                plot_feature_importance(fi_values=fi_values, names_to_highlight=names_to_highlight, top_k=4,
                                         title=f"Feature Importance on {data_name} using {model_name}",
-                                        save_name=f"{plot_dir}/fi_value_{data_name}_{model_name}")
+                                        save_name=f"{plot_dir}/fi_value_{data_name}_{model_name}.pdf")
 
 
 if __name__ == '__main__':
@@ -247,3 +256,5 @@ if __name__ == '__main__':
     # make_latex_table(metric='Auroc')
     make_latex_table(metric='Avg Node Count', highlight_max=False, precision=2)
     get_cridd(metric='Auroc')
+
+#plot_fi_importance_all_data()
