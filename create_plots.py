@@ -16,6 +16,7 @@ from utils.plotting import plot_differences, plot_feature_importance
 from utils.evaluate_multiple import evaluate_multiple
 from utils.compute_averages import compute_total_avg, compute_stats_avgs
 
+
 # TODO: Load all results and average if mulitple seeds were used.
 # load (into one list)
 # compute_stats_avgs
@@ -241,14 +242,15 @@ def plot_fi_importance_all_data(data_dir="./results"):
     model_names_fi = ["hpt_merit"]  # "adwin_hpt", "adwin_hpt_merit"
     for data_name in data_names:
         # Plot feature importance
-        for model_name in model_names_fi:
+        for model_name in ["hpt", "hpt_tau_0.1", "hpt_tau_0.2", "hpt_tau_0.3", "hpt_tau_0.4", "hpt_tau_0.5",
+                           "hpt_tau_0.01", "hpt_tau_0.02", "hpt_tau_0.03", "hpt_tau_0.04", "hpt_tau_0.05",
+                           "hpt_tau_0.06", "hpt_tau_0.07", "hpt_tau_0.08", "hpt_tau_0.09"]:
             for i, seed in enumerate(seeds[:1]):
-                fi_values = load(f"{data_dir}/fi_values/{model_name}_seed{seed}_{data_name}.npy")
-                # print(fi_values)
-                names_to_highlight = None
-                plot_feature_importance(fi_values=fi_values, names_to_highlight=names_to_highlight,
+                fi_values = load(f"results/fi_values/{model_name}_seed{seed}_{data_name}.npy")
+                names_to_highlight = []
+                plot_feature_importance(fi_values=fi_values, names_to_highlight=names_to_highlight, top_k=4,
                                         title=f"Feature Importance on {data_name} using {model_name}",
-                                        save_name=f"{plot_dir}/fi_value_{data_name}_{model_name}")
+                                        save_name=f"{plot_dir}/fi_value_{data_name}_{model_name}.pdf")
 
 
 def box_plot_complexity(metric, data_dir="./results"):
@@ -322,3 +324,5 @@ if __name__ == '__main__':
     # box_plot_complexity(metric='Avg Node Count', data_dir=data_dir)
     plot_tau_values(metric='Auroc', data_dir=data_dir + "/summary")
     plot_tau_values(metric='Avg Node Count', data_dir=data_dir + "/summary")
+
+#plot_fi_importance_all_data()
