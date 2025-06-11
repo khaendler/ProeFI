@@ -28,21 +28,22 @@ def run_evaluation(data_name, seed):
     alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     taus = [0.01 * i for i in range(1, 11)]
     taus.extend([0.2, 0.3, 0.4, 0.5])
-    models = [("ht", HoeffdingTreeClassifier()),
-              (f"ht_merit_seed{seed}", HTMerit(seed=seed)),
-              (f"hat_seed{seed}", HoeffdingAdaptiveTreeClassifier(seed=seed)),
-              ("efdt", ExtremelyFastDecisionTreeClassifier()),
-              (f"hpt_seed{seed}", HoeffdingPruningTree(max_depth=None, seed=seed)),
-              (f"hpt_merit_seed{seed}", HPTMerit(max_depth=None, seed=seed)),
+    models = [
+              #("ht", HoeffdingTreeClassifier()),
+              # (f"ht_merit_seed{seed}", HTMerit(seed=seed)),
+              # (f"hat_seed{seed}", HoeffdingAdaptiveTreeClassifier(seed=seed)),
+              # ("efdt", ExtremelyFastDecisionTreeClassifier()),
+              # (f"hpt_seed{seed}", HoeffdingPruningTree(max_depth=None, seed=seed)),
+              # (f"hpt_merit_seed{seed}", HPTMerit(max_depth=None, seed=seed)),
               ]
-    for alpha in alphas:
-        models.append((f"hpt_convex_merit_{alpha}_seed{seed}", HPTConvexMerit(alpha=alpha, max_depth=None, seed=seed)))
+    # for alpha in alphas:
+    #     models.append((f"hpt_convex_merit_{alpha}_seed{seed}", HPTConvexMerit(alpha=alpha, max_depth=None, seed=seed)))
     for tau in taus:
         models.append((f"hpt_tau_{tau}_seed{seed}", HPTFixedThreshold(importance_threshold=tau, seed=seed)))
 
     datasets = {"airlines": lambda: Airlines(),
                 "electricity": lambda: Elec2(),
-                "kdd99": lambda: KDD99(),
+                # "kdd99": lambda: KDD99(),
                 "wisdm": lambda: WISDM(),
                 "covtype": lambda: CovType(),
                 "nomao": lambda: Nomao(),
@@ -64,10 +65,11 @@ def run_evaluation(data_name, seed):
             y_pred = model.predict_proba_one(x)
             model.learn_one(x, y)
             evaluator.update(y_pred=y_pred, y_target=y, n_nodes=model.n_nodes)
+            # if i == 10000: break
 
-        save(evaluator.acc_values, f"results/acc_values/{model_name}_{data_name}.npy")
-        save(evaluator.kappa_values, f"results/kappa_values/{model_name}_{data_name}.npy")
-        save(evaluator.n_nodes, f"results/n_nodes/{model_name}_{data_name}.npy")
+        # save(evaluator.acc_values, f"results/acc_values/{model_name}_{data_name}.npy")
+        # save(evaluator.kappa_values, f"results/kappa_values/{model_name}_{data_name}.npy")
+        # save(evaluator.n_nodes, f"results/n_nodes/{model_name}_{data_name}.npy")
 
         # Stores feature importance values if the model collected any.
         if isinstance(model, HoeffdingPruningTree):

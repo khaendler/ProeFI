@@ -15,6 +15,9 @@ def main():
     if args.seed is not None:
         seed = args.seed
 
+    # # todo test
+    # dataset = "nomao"
+
     run_evaluation(data_name=dataset, seed=seed)
 
 
