@@ -3,7 +3,7 @@ from river.tree.nodes.htc_nodes import LeafMajorityClass, LeafNaiveBayes, LeafNa
 
 
 class HTLeafWithPruneInfo(HTLeaf):
-    """ Leaf that keeps stores information about the pruning which resulted into it being created.
+    """ Leaf that stores information about the pruning which resulted into it being created.
     Stores instance and feature. """
     def __init__(self, stats, depth, splitter, prune_info=None, **kwargs):
         super().__init__(stats, depth, splitter, **kwargs)
