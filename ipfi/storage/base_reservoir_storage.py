@@ -3,7 +3,14 @@ from abc import abstractmethod, ABC
 
 
 class BaseReservoirStorage(ABC):
+    """ Reservoir Storage - base class
 
+    Parts of this code are adapted from https://github.com/mmschlk/iXAI.
+
+    Args:
+        size (int): Size of the reservoir.
+
+    """
     def __init__(self, size: int):
         self.storage: List[dict] = []
         self.size = size

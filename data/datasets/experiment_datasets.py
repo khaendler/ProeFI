@@ -4,7 +4,7 @@ from river import datasets
 from river.stream import iter_sklearn_dataset, iter_csv, iter_pandas
 from river.datasets.synth import Agrawal, RandomRBFDrift, LEDDrift
 
-from data.modified_stream_generators.modified_concept_drift_stream import SafeConceptDriftStream
+from data.modified_concept_drift_stream import SafeConceptDriftStream
 
 
 #####################################################################################################

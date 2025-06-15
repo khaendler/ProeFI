@@ -5,6 +5,12 @@ from .base_reservoir_storage import BaseReservoirStorage
 
 class GeometricReservoirStorage(BaseReservoirStorage):
     """ Geometric Reservoir Storage
+
+    Parts of this code are adapted from https://github.com/mmschlk/iXAI.
+
+    Args:
+        size (int): Size of the reservoir.
+        seed (int): Random seed for reproducibility.
     """
     def __init__(self, size: int, seed: int):
         super().__init__(size=size)

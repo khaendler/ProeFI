@@ -1,5 +1,6 @@
 import os
 import re
+import itertools
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,14 +8,18 @@ from pathlib import Path
 import scipy.stats as ss
 from critdd import Diagram
 import seaborn as sns
+from river import metrics
+
+from tree import ProeFI
 from utils.io_helpers import load
-from utils.plotting import plot_differences, plot_feature_importance
+from ipfi.scaler import MinMaxScaler
+from data.datasets.experiment_datasets import DriftingAgrawal
 
 
 model_names = ["ht",
                "hat",
                "efdt",
-               "hpt",
+               "proefi",
                ]
 
 data_names = ["airlines", "electricity", "covtype", "nomao", "kdd99", "wisdm",
@@ -24,67 +29,6 @@ seeds = [40, 41, 42, 43, 44]
 
 plot_dir = "./results/plots"
 Path(plot_dir).mkdir(parents=True, exist_ok=True)
-
-
-def ttest(
-        metric: str,
-        data_name: str,
-        model_names: tuple[str, str] = ("hat", "hpt"),
-        data_dir: str = "./results"):
-    """
-    Performs a ttest between two given models for a given dataset.
-    :param metric: The metric to evaluate.
-    :param data_name: Name of the dataset
-    :param model_names: Names of models to compare.
-    :param data_dir: Results directory.
-    :return: p_value
-    """
-
-    model_dfs = [[] for _ in range(2)]
-    for i, model in enumerate(model_names):
-        summary_dir = os.path.join(data_dir, "summary")
-        pattern = re.compile(rf"{model}_seed(\d+)_{data_name}.csv")
-
-        for filename in os.listdir(summary_dir):
-            if pattern.match(filename):
-                file_path = os.path.join(summary_dir, filename)
-                if os.path.exists(file_path):
-                    df = pd.read_csv(file_path)
-                    model_dfs[i].append(df)
-
-    model_results = [pd.concat(frames)[metric].values for frames in model_dfs]
-    _, p_value = ss.ttest_rel(model_results[0], model_results[1])
-
-    return p_value
-
-
-def ttest_for_all_data(
-        metric: str,
-        model_names: tuple[str, str] = ("hat", "hpt"),
-        data_dir: str = "./results"):
-    """
-    Performs a ttest between two given models for all datasets.
-    :param metric: The metric to evaluate.
-    :param model_names: Names of models to compare.
-    :param data_dir: Results directory.
-    :return: {data_name, p_value}
-    """
-
-    summary_dir = os.path.join(data_dir, "summary")
-    data_names = set()
-    pattern = re.compile(rf"(?:{'|'.join(model_names)})_seed\d+_(\w+)\.csv")
-
-    for filename in os.listdir(summary_dir):
-        match = pattern.match(filename)
-        if match:
-            data_names.add(match.group(1))
-
-    results = {}
-    for data_name in data_names:
-        significant = ttest(metric, data_name, model_names, data_dir)
-        results[data_name] = significant
-
-    return results
 
 
 def get_df_summary(metric, data_dir="./results"):
@@ -163,69 +107,6 @@ def get_cridd(metric, data_dir="./results"):
     )
 
 
-def get_metrics_from_all_data():
-    metrics = {}
-    for data_name in data_names:
-        nnodes = {}
-        kappas = {}
-        accuracies = {}
-        metrics[data_name] = {}
-        for model_name in model_names:
-            average_nnodes, average_kappas, average_accuracies = None, None, None
-            if model_name not in ['ht', 'efdt']:  # HT and EFDT are deterministic
-                for i, seed in enumerate(seeds):
-                    current_nnodes = np.array(load(f"results/n_nodes/{model_name}_seed{seed}_{data_name}.npy"))
-                    current_kappas = np.array(load(f"results/kappa_values/{model_name}_seed{seed}_{data_name}.npy"))
-                    current_accuracies = np.array(load(f"results/acc_values/{model_name}_seed{seed}_{data_name}.npy"))
-                    if i == 0:
-                        average_nnodes = current_nnodes
-                        average_kappas = current_kappas
-                        average_accuracies = current_accuracies
-                    else:
-                        average_nnodes += current_nnodes
-                        average_kappas += current_kappas
-                        average_accuracies += current_accuracies
-                nnodes[model_name] = average_nnodes / len(seeds)
-                kappas[model_name] = average_kappas / len(seeds)
-                accuracies[model_name] = average_accuracies / len(seeds)
-            else:
-                nnodes[model_name] = load(f"results/n_nodes/{model_name}_{data_name}.npy")
-                kappas[model_name] = load(f"results/kappa_values/{model_name}_{data_name}.npy")
-                accuracies[model_name] = load(f"results/acc_values/{model_name}_{data_name}.npy")
-
-            metrics[data_name][model_name] = {'nnodes': nnodes, 'kappas': kappas, 'accuracies': accuracies}
-    return metrics
-
-
-def plot_performances_all_data():
-    metrics = get_metrics_from_all_data()
-    for data_name in data_names:
-        for model_name in model_names:
-            plot_differences(metrics[data_name][model_name]['nnodes'],
-                             f"Growth of n_nodes in models over time ({data_name})", "Number of nodes",
-                             model_names, filename=f"{plot_dir}/n_nodes_{data_name}")
-            plot_differences(metrics[data_name][model_name]['kappas'],
-                             f"Kappa values over time ({data_name})", "Kappa", model_names,
-                             filename=f"{plot_dir}/kappa_{data_name}")
-            plot_differences(metrics[data_name][model_name]['accuracies'],
-                             f"Accuracy over time ({data_name})", "Accuracy", model_names,
-                             filename=f"{plot_dir}/accuracy_{data_name}")
-
-
-def plot_fi_importance_all_data():
-    for data_name in data_names:
-        # Plot feature importance
-        for model_name in ["hpt", "hpt_tau_0.1", "hpt_tau_0.2", "hpt_tau_0.3", "hpt_tau_0.4", "hpt_tau_0.5",
-                           "hpt_tau_0.01", "hpt_tau_0.02", "hpt_tau_0.03", "hpt_tau_0.04", "hpt_tau_0.05",
-                           "hpt_tau_0.06", "hpt_tau_0.07", "hpt_tau_0.08", "hpt_tau_0.09"]:
-            for i, seed in enumerate(seeds[:1]):
-                fi_values = load(f"results/fi_values/{model_name}_seed{seed}_{data_name}.npy")
-                names_to_highlight = []
-                plot_feature_importance(fi_values=fi_values, names_to_highlight=names_to_highlight, top_k=4,
-                                        title=f"Feature Importance on {data_name} using {model_name}",
-                                        save_name=f"{plot_dir}/fi_value_{data_name}_{model_name}.pdf")
-
-
 def plot_tau_values(metric, data_dir="./results"):
     taus = ['$\\tau_t$']
     taus.extend([0.01 * i for i in range(1, 11)])
@@ -234,9 +115,9 @@ def plot_tau_values(metric, data_dir="./results"):
     table = pd.DataFrame(index=data_names, columns=taus)
     for tau in taus:
         if tau == "$\\tau_t$":
-            model_name = "hpt"
+            model_name = "proefi"
         else:
-            model_name = f"hpt_tau_{tau}"
+            model_name = f"proefi_tau_{tau}"
         for data_name in data_names:
             value = 0
             seeds_seen = 0
@@ -267,6 +148,100 @@ def plot_tau_values(metric, data_dir="./results"):
     plt.savefig(f"./results/plots/boxplot_tau_threshold_{metric}.pdf", format="pdf", bbox_inches="tight")
 
 
+def plot_model_behavior():
+    """ This first trains ProeFI on Agrawal with an abrupt concept drift.
+    Then it plots the feature importance, AUROC and node count over time.
+    """
+    model = ProeFI(seed=40)
+    data = DriftingAgrawal(width=50, seed=40)
+    metric = metrics.ROCAUC()
+
+    auc_list = []
+    node_list = []
+    for i, (x, y) in enumerate(data.take(1000000), start=1):
+        y_pred = model.predict_proba_one(x)
+        metric.update(y, y_pred)
+        auc_list.append(metric.get())
+        node_list.append(model.n_nodes)
+
+        model.learn_one(x, y)
+
+    fi_values = model.collected_importance_values
+
+    plot_feature_importance(fi_values)
+    plot_auroc_and_nodes(auc_list, node_list)
+
+
+def plot_feature_importance(fi_values):
+    plt.rcParams.update({'font.size': 16})
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    x = list(range(len(fi_values)))
+    scaler = MinMaxScaler()
+    for row in fi_values:
+        scaler.learn_one(row)
+    fi_values = [scaler.transform_one(row) for row in fi_values]
+
+    highlight_set = set()
+    all_keys = list(fi_values[0].keys())
+    totals = {key: sum(abs(row[key]) for row in fi_values) for key in all_keys}
+    top_keys = sorted(totals, key=totals.get, reverse=True)[:4]
+    highlight_set.update(top_keys)
+
+    default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    color_cycle = itertools.cycle(default_colors)
+    key_to_color = {key: next(color_cycle) for key in highlight_set}
+
+    for key in all_keys:
+        y = [row[key] for row in fi_values]
+        if key in key_to_color:
+            color = key_to_color[key]
+            label = key
+            z = 3
+        else:
+            color = 'lightgrey'
+            label = None
+            z = 1
+        ax.plot(x, y, color=color, label=label, linewidth=1, zorder=z)
+
+    for xv in [250000, 500000, 750000]:
+        ax.axvline(x=xv, color='grey', linestyle='--', linewidth=1)
+
+    ax.legend(loc='upper right')
+    plt.xlabel("Instances")
+    plt.ylabel("Feature importance")
+    plt.tight_layout()
+    plt.savefig(f"./results/plots/plot_fi_over_time.pdf", format="pdf", bbox_inches="tight")
+
+
+def plot_auroc_and_nodes(auc_list, node_list):
+    x = np.arange(1, len(auc_list) + 1)
+    plt.rcParams.update({'font.size': 16})
+    fig, ax1 = plt.subplots(figsize=(8, 5))
+
+    color_auc = 'tab:blue'
+    ax1.plot(x[100:], auc_list[100:], color=color_auc, label='AUROC')
+    ax1.set_xlabel('Instances')
+    ax1.set_ylabel('AUROC')
+    ax1.tick_params(axis='y')
+
+    ax2 = ax1.twinx()
+    color_nodes = 'tab:red'
+    ax2.plot(x[100:], node_list[100:], color=color_nodes, label='#nodes')
+    ax2.set_ylabel('#nodes')
+    ax2.set_yscale("log")
+    ax2.tick_params(axis='y')
+
+    for xv in [250000, 500000, 750000]:
+        ax1.axvline(x=xv, color='grey', linestyle='--', linewidth=1)
+
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines + lines2, labels + labels2)
+
+    plt.tight_layout()
+    plt.savefig(f"./results/plots/auroc_nodecount_plot.pdf", format="pdf", bbox_inches="tight")
+
 if __name__ == '__main__':
     data_dir = "./results"
     # plot_performances_all_data()
@@ -277,3 +252,4 @@ if __name__ == '__main__':
     get_cridd(metric='tradeoff', data_dir=data_dir)
     plot_tau_values(metric='Auroc', data_dir=data_dir)
     plot_tau_values(metric='Avg Node Count', data_dir=data_dir)
+    plot_model_behavior()

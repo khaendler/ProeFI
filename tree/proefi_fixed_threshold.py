@@ -1,10 +1,10 @@
 from river.tree.splitter import Splitter
 
-from tree import HoeffdingPruningTree
+from tree import ProeFI
 
 
-class HPTFixedThreshold(HoeffdingPruningTree):
-    """Hoeffding Pruning Tree using a fixed importance threshold.
+class ProeFIFixedThreshold(ProeFI):
+    """ProeFI using a fixed importance threshold.
 
     Parameters
     ----------
@@ -51,10 +51,6 @@ class HPTFixedThreshold(HoeffdingPruningTree):
         If True, disable poor attributes to reduce memory usage.
     merit_preprune
         If True, enable merit-based tree pre-pruning.
-    pruner
-        The Pruner to use.</br>
-        - 'selective' - SelectivePruner</br>
-        - 'complete' - CompletePruner</br>
     seed
         Random seed for reproducibility.
     importance_threshold
@@ -80,7 +76,6 @@ class HPTFixedThreshold(HoeffdingPruningTree):
         stop_mem_management: bool = False,
         remove_poor_attrs: bool = False,
         merit_preprune: bool = True,
-        pruner: str = "complete",
         seed: int = None,
         importance_threshold: float = 0.02
     ):
@@ -103,7 +98,6 @@ class HPTFixedThreshold(HoeffdingPruningTree):
             stop_mem_management=stop_mem_management,
             remove_poor_attrs=remove_poor_attrs,
             merit_preprune=merit_preprune,
-            pruner=pruner,
             seed=seed
         )
 

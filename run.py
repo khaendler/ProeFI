@@ -4,7 +4,7 @@ from river.tree import (HoeffdingTreeClassifier,
                         HoeffdingAdaptiveTreeClassifier,
                         ExtremelyFastDecisionTreeClassifier)
 from river.datasets import Elec2
-from tree import HoeffdingPruningTree, HPTMerit, HTMerit, HPTConvexMerit, HPTFixedThreshold
+from tree import ProeFI, ProeFIFixedThreshold
 from data.datasets.experiment_datasets import *
 from utils.io_helpers import save
 from pathlib import Path
@@ -19,31 +19,27 @@ Path("./results/fi_values").mkdir(parents=True, exist_ok=True)
 Path("./results/summary").mkdir(parents=True, exist_ok=True)
 
 datasets_n_classes = {"airlines": 2, "electricity": 2, "kdd99": 23, "wisdm": 6, "covtype": 7, "nomao": 2,
-                      "agr_a": 2, "agr_g": 2, "rbf_f": 5,  "rbf_m": 5, "led_a": 10, "led_g": 10 }
+                      "agr_a": 2, "agr_g": 2, "rbf_f": 5,  "rbf_m": 5, "led_a": 10, "led_g": 10}
 
 
 # Evaluates each model on a chosen dataset. Collects number of nodes, accuracy values, kappa scores and
 # feature importance values (if available) for each instance.
 def run_evaluation(data_name, seed):
-    alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     taus = [0.01 * i for i in range(1, 11)]
     taus.extend([0.2, 0.3, 0.4, 0.5])
     models = [
               #("ht", HoeffdingTreeClassifier()),
-              # (f"ht_merit_seed{seed}", HTMerit(seed=seed)),
               # (f"hat_seed{seed}", HoeffdingAdaptiveTreeClassifier(seed=seed)),
               # ("efdt", ExtremelyFastDecisionTreeClassifier()),
-              # (f"hpt_seed{seed}", HoeffdingPruningTree(max_depth=None, seed=seed)),
-              # (f"hpt_merit_seed{seed}", HPTMerit(max_depth=None, seed=seed)),
+              # (f"hpt_seed{seed}", ProeFI(max_depth=None, seed=seed)),
               ]
-    # for alpha in alphas:
-    #     models.append((f"hpt_convex_merit_{alpha}_seed{seed}", HPTConvexMerit(alpha=alpha, max_depth=None, seed=seed)))
+
     for tau in taus:
-        models.append((f"hpt_tau_{tau}_seed{seed}", HPTFixedThreshold(importance_threshold=tau, seed=seed)))
+        models.append((f"proefi_tau_{tau}_seed{seed}", ProeFIFixedThreshold(importance_threshold=tau, seed=seed)))
 
     datasets = {"airlines": lambda: Airlines(),
                 "electricity": lambda: Elec2(),
-                # "kdd99": lambda: KDD99(),
+                "kdd99": lambda: KDD99(),
                 "wisdm": lambda: WISDM(),
                 "covtype": lambda: CovType(),
                 "nomao": lambda: Nomao(),
@@ -72,7 +68,7 @@ def run_evaluation(data_name, seed):
         # save(evaluator.n_nodes, f"results/n_nodes/{model_name}_{data_name}.npy")
 
         # Stores feature importance values if the model collected any.
-        if isinstance(model, HoeffdingPruningTree):
+        if isinstance(model, ProeFI):
             save(model.collected_importance_values, f"results/fi_values/{model_name}_{data_name}.npy")
 
         metrics = evaluator.get_final()

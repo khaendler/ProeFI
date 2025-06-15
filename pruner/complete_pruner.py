@@ -3,13 +3,13 @@ from river.tree.nodes.branch import DTBranch
 
 
 class CompletePruner(BasePruner):
-    """ Pruner that uses preorder traversal to prune the HoeffdingPruningTree based on feature importance.
+    """ Pruner that uses preorder traversal to prune the ProeFI based on feature importance.
     A node that was split on an unimportant feature will be replaced by a new leaf containing the node's statistics.
 
     Parameters
     ----------
     tree
-        The HoeffdingPruningTree that should be pruned.
+        The ProeFI that should be pruned.
     """
 
     def __init__(self, tree):
@@ -40,9 +40,6 @@ class CompletePruner(BasePruner):
             if node.feature not in self.tree.important_features:
                 new_leaf = self.tree.create_new_leaf(initial_stats=node.stats, parent=parent,
                                                      prune_info=(int(self.tree._train_weight_seen_by_model), node.feature))
-
-                for branch in node.iter_branches():
-                    self.tree.branch_lifetimes[branch.feature][branch.creation_instance] = int(self.tree._train_weight_seen_by_model)
 
                 if parent is None:
                     self.tree.set_new_root(new_leaf)

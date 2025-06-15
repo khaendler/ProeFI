@@ -1,5 +1,6 @@
 from river.metrics.base import Metric
 
+
 class RiverMetricToLossFunction:
     """Wrapper that transforms a river.metrics.base.Metric into a loss function.
 

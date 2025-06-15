@@ -13,8 +13,11 @@ class UniformReservoirStorage(BaseReservoirStorage):
     the current time.
     For more information we refer to https://en.wikipedia.org/wiki/Reservoir_sampling.
 
+    Parts of this code are adapted from https://github.com/mmschlk/iXAI.
+
     Args:
-        stored_samples int: Number of samples observed in the stream.
+        size (int): Size of the reservoir.
+        seed (int): Random seed for reproducibility.
     """
 
     def __init__(self, seed: int, size: int = 1000):

@@ -1,4 +1,3 @@
-import math
 import collections
 import functools
 import typing
@@ -16,7 +15,6 @@ from river.tree import HoeffdingTreeClassifier
 
 from ipfi.explainer import IncrementalPFI
 from pruner.complete_pruner import CompletePruner
-from pruner.selective_pruner import SelectivePruner
 
 
 from tree.nodes.HTLeafWithPruneInfo import (
@@ -26,23 +24,11 @@ from tree.nodes.HTLeafWithPruneInfo import (
     LeafNaiveBayesAdaptiveWithPruneInfo
 )
 
-from tree.nodes.StatBranch import (
-    StatNumericBinaryBranch,
-    StatNominalBinaryBranch,
-    StatNumericMultiwayBranch,
-    StatNominalMultiwayBranch
-)
 
-import matplotlib.pyplot as plt
-import numpy as np
-
-
-class HoeffdingPruningTree(HoeffdingTreeClassifier):
-    """Hoeffding Pruning Tree using the VFDT classifier with incremental PFI to prune the tree.
-    HPT uses the ADWIN estimation as the importance threshold to determine whether a feature is important
-    enough to retain the nodes split on it.
-
-    Note: This works with river versions 0.16.0. Later versions may not be supported.
+class ProeFI(HoeffdingTreeClassifier):
+    """Pruning Hoeffding Trees by the Importance of Features (ProeFI) using the VFDT classifier with incremental PFI
+    to prune the tree. ProeFI uses the ADWIN estimation as the importance threshold to determine whether a feature
+    is important enough to retain the nodes split on it.
 
     Parameters
     ----------
@@ -89,10 +75,6 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
         If True, disable poor attributes to reduce memory usage.
     merit_preprune
         If True, enable merit-based tree pre-pruning.
-    pruner
-        The Pruner to use.</br>
-        - 'selective' - SelectivePruner</br>
-        - 'complete' - CompletePruner</br>
     seed
         Random seed for reproducibility.
     """
@@ -116,7 +98,6 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
         stop_mem_management: bool = False,
         remove_poor_attrs: bool = False,
         merit_preprune: bool = True,
-        pruner: str = "complete",
         seed: int = None
     ):
 
@@ -147,7 +128,7 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
         self.important_features = None
         self.last_important_features = None
 
-        self.pruner = self._set_pruner(pruner)
+        self.pruner = CompletePruner(self)
         self.seed = seed
 
         # For threshold
@@ -175,19 +156,6 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
     def set_new_root(self, node: HTLeaf | DTBranch):
         self._root = node
 
-    def _branch_selector(self, numerical_feature=True, multiway_split=False) -> type[DTBranch]:
-        """Create a new split node."""
-        if numerical_feature:
-            if not multiway_split:
-                return StatNumericBinaryBranch
-            else:
-                return StatNumericMultiwayBranch
-        else:
-            if not multiway_split:
-                return StatNominalBinaryBranch
-            else:
-                return StatNominalMultiwayBranch
-
     def create_new_leaf(self, initial_stats: dict | None = None, parent: HTLeafWithPruneInfo | DTBranch | None = None,
                         prune_info: dict | None = None):
         return self._new_leaf(initial_stats, parent, prune_info)
@@ -212,14 +180,6 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
         self._n_active_leaves = sum(1 for leaf in leaves if leaf.is_active())
         self._n_inactive_leaves = sum(1 for leaf in leaves if not leaf.is_active())
 
-    def _set_pruner(self, pruner):
-        if pruner == "selective":
-            return SelectivePruner(self)
-        elif pruner == "complete":
-            return CompletePruner(self)
-        else:
-            raise ValueError(f"Invalid pruner type: {pruner}. Valid options are 'selective' or 'complete'.")
-
     def learn_one(self, x, y, *, w=1.0):
         # Initialize the incremental PFI instance.
         if self.incremental_pfi is None:
@@ -242,160 +202,7 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
         self.last_important_features = set(self.important_features)
 
         # learning
-        #super().learn_one(x, y, sample_weight=1.0)
-
-        self.classes.add(y)
-
-        self._train_weight_seen_by_model += w
-
-        if self._root is None:
-            self._root = self._new_leaf()
-            self._n_active_leaves = 1
-
-        p_node = None
-        node = None
-        if isinstance(self._root, DTBranch):
-            path = iter(self._root.walk(x, until_leaf=False))
-            while True:
-                aux = next(path, None)
-                if aux is None:
-                    break
-                p_node = node
-                node = aux
-        else:
-            node = self._root
-
-        if isinstance(node, HTLeaf):
-            node.learn_one(x, y, w=w, tree=self)
-            if self._growth_allowed and node.is_active():
-                if node.depth >= self.max_depth:  # Max depth reached
-                    node.deactivate()
-                    self._n_active_leaves -= 1
-                    self._n_inactive_leaves += 1
-                else:
-                    weight_seen = node.total_weight
-                    weight_diff = weight_seen - node.last_split_attempt_at
-                    if weight_diff >= self.grace_period:
-                        p_branch = p_node.branch_no(x) if isinstance(p_node, DTBranch) else None
-                        self._attempt_to_split(node, p_node, p_branch)
-                        node.last_split_attempt_at = weight_seen
-        else:
-            while True:
-                # Split node encountered a previously unseen categorical value (in a multi-way
-                #  test), so there is no branch to sort the instance to
-                if node.max_branches() == -1 and node.feature in x:
-                    # Create a new branch to the new categorical value
-                    leaf = self._new_leaf(parent=node)
-                    node.add_child(x[node.feature], leaf)
-                    self._n_active_leaves += 1
-                    node = leaf
-                # The split feature is missing in the instance. Hence, we pass the new example
-                # to the most traversed path in the current subtree
-                else:
-                    _, node = node.most_common_path()
-                    # And we keep trying to reach a leaf
-                    if isinstance(node, DTBranch):
-                        node = node.traverse(x, until_leaf=False)
-                # Once a leaf is reached, the traversal can stop
-                if isinstance(node, HTLeaf):
-                    break
-            # Learn from the sample
-            node.learn_one(x, y, w=w, tree=self)
-
-        if self._train_weight_seen_by_model % self.memory_estimate_period == 0:
-            self._estimate_model_size()
-
-        return self
-
-    def _attempt_to_split(self, leaf: HTLeaf, parent: DTBranch, parent_branch: int, **kwargs):
-        """Attempt to split a leaf.
-
-        If the samples seen so far are not from the same class then:
-
-        1. Find split candidates and select the top 2.
-        2. Compute the Hoeffding bound.
-        3. If the difference between the top 2 split candidates is larger than the Hoeffding bound:
-           3.1 Replace the leaf node by a split node (branch node).
-           3.2 Add a new leaf node on each branch of the new split node.
-           3.3 Update tree's metrics
-
-        Optional: Disable poor attributes. Depends on the tree's configuration.
-
-        Parameters
-        ----------
-        leaf
-            The leaf to evaluate.
-        parent
-            The leaf's parent.
-        parent_branch
-            Parent leaf's branch index.
-        kwargs
-            Other parameters passed to the new branch.
-        """
-        if not leaf.observed_class_distribution_is_pure():  # type: ignore
-            split_criterion = self._new_split_criterion()
-
-            best_split_suggestions = leaf.best_split_suggestions(split_criterion, self)
-            best_split_suggestions = self._include_fi_in_merit(best_split_suggestions)
-            best_split_suggestions.sort()
-            should_split = False
-            if len(best_split_suggestions) < 2:
-                should_split = len(best_split_suggestions) > 0
-            else:
-                hoeffding_bound = self._hoeffding_bound(
-                    split_criterion.range_of_merit(leaf.stats),
-                    self.delta,
-                    leaf.total_weight,
-                )
-                best_suggestion = best_split_suggestions[-1]
-                second_best_suggestion = best_split_suggestions[-2]
-                if (
-                    best_suggestion.merit - second_best_suggestion.merit > hoeffding_bound
-                    or hoeffding_bound < self.tau
-                ):
-                    should_split = True
-                if self.remove_poor_attrs:
-                    poor_atts = set()
-                    # Add any poor attribute to set
-                    for suggestion in best_split_suggestions:
-                        if (
-                            suggestion.feature
-                            and best_suggestion.merit - suggestion.merit > hoeffding_bound
-                        ):
-                            poor_atts.add(suggestion.feature)
-                    for poor_att in poor_atts:
-                        leaf.disable_attribute(poor_att)
-            if should_split:
-                split_decision = best_split_suggestions[-1]
-                if split_decision.feature is None:
-                    # Pre-pruning - null wins
-                    leaf.deactivate()
-                    self._n_inactive_leaves += 1
-                    self._n_active_leaves -= 1
-                else:
-                    branch = self._branch_selector(
-                        split_decision.numerical_feature, split_decision.multiway_split
-                    )
-                    leaves = tuple(
-                        self._new_leaf(initial_stats, parent=leaf)
-                        for initial_stats in split_decision.children_stats  # type: ignore
-                    )
-
-                    new_split = split_decision.assemble(
-                        branch, leaf.stats, leaf.depth, *leaves, **kwargs
-                    )
-                    new_split.creation_instance = int(self._train_weight_seen_by_model)
-                    self.branch_lifetimes[split_decision.feature][int(self._train_weight_seen_by_model)] = math.inf
-
-                    self._n_active_leaves -= 1
-                    self._n_active_leaves += len(leaves)
-                    if parent is None:
-                        self._root = new_split
-                    else:
-                        parent.children[parent_branch] = new_split
-
-                # Manage memory
-                self._enforce_size_limit()
+        super().learn_one(x, y, w=w)
 
     def _create_ipfi(self):
         self.incremental_pfi = IncrementalPFI(
@@ -424,12 +231,8 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
         self.importance_adwin.update(average_importance_value)
         self.importance_threshold = self.importance_adwin.estimation
 
-    def _include_fi_in_merit(self, split_suggestions):
-        """ Nothing. Currently only for HPTMerit """
-        return split_suggestions
-
-    def plot_feature_importance(self, names_to_highlight, normalized=False):
-        self.incremental_pfi.plot(names_to_highlight=names_to_highlight, normalized=normalized)
+    def plot_feature_importance(self, top_k=4, names_to_highlight=None, normalized=False):
+        self.incremental_pfi.plot(top_k=top_k, names_to_highlight=names_to_highlight, normalized=normalized)
 
     def draw(self, max_depth: int | None = None):
         """Draw the tree using the `graphviz` library. Includes prune_info of leaves.
@@ -533,63 +336,6 @@ class HoeffdingPruningTree(HoeffdingTreeClassifier):
                 )
 
         return dot
-
-    def plot_active_nodes_with_feature(self, feature):
-        """ Plots the active nodes over time with the importance values for a given feature.
-
-        Parameters:
-        - data: List of dictionaries, where each dictionary represents {creation_time: elimination_time}.
-        - importance_values: List of dictionaries containing importance values over time.
-        - feature: The feature to plot the importance values for.
-        """
-        # Extract events from creation and elimination times
-        events = []
-        for creation, elimination in self.branch_lifetimes[feature].items():
-            events.append((creation, True))
-            events.append((elimination, False))
-
-        # Sort events by time
-        events.sort(key=lambda x: x[0])
-
-        # Calculate active instances over time
-        active_instances = 0
-        times = []
-        active_count = []
-
-        for event in events:
-            if event[0] != math.inf:
-                times.append(event[0])
-                if event[1]:
-                    active_instances += 1
-                else:
-                    active_instances -= 1
-                active_count.append(active_instances)
-
-        times = [0] + times + [len(self.collected_importance_values["importance_values"])]
-        active_count = [0] + active_count + [active_count[-1]]
-        print(times, active_count)
-
-        # Extract importance values for the specified feature
-        feature_values = np.array([entry.get(feature, 0.0) for entry in self.collected_importance_values["importance_values"]])
-        time_steps = np.arange(len(feature_values))
-
-        fig, ax1 = plt.subplots()
-        ax1.set_xlabel('Time')
-        color_left = 'tab:blue'
-        ax1.set_ylabel('Node Count', color=color_left)
-        ax1.step(times, active_count, color=color_left, label='Nodes')
-        ax1.tick_params(axis='y', labelcolor=color_left)
-
-        ax2 = ax1.twinx()
-
-        color_right = 'tab:red'
-        ax2.set_ylabel('Normalized Feature Importance', color=color_right)
-        ax2.plot(time_steps, feature_values, color=color_right, label=f'Feature Importance')
-        ax2.tick_params(axis='y', labelcolor=color_right)
-
-        plt.title(f'Node Count and Feature Importance of "{feature}" Over Time')
-        fig.tight_layout()
-        plt.show()
 
 
 def _color_brew(n: int) -> list[tuple[int, int, int]]:

@@ -1,8 +1,5 @@
-from .hoeffding_pruning_tree import HoeffdingPruningTree
-from .hpt_convex_merit import HPTConvexMerit
-from .hpt_merit import HPTMerit
-from .ht_merit import HTMerit
-from .hpt_fixed_threshold import HPTFixedThreshold
+from .proefi import ProeFI
+from .proefi_fixed_threshold import ProeFIFixedThreshold
 
 
-__all__ = ["HoeffdingPruningTree", "HPTConvexMerit", "HPTMerit", "HTMerit", "HPTFixedThreshold"]
+__all__ = ["ProeFI", "ProeFIFixedThreshold"]
