@@ -1,6 +1,6 @@
 # Pruning Hoeffding Trees by the Importance of Features
 
-This repository contains the official code for our workshop paper. It contains Pruning Hoeffding Trees by the Importance of Features (ProeFI), a novel approach that, in a transparent manner, 
+This repository contains the official code for our workshop paper. It contains **P**runing H**oe**ffding Trees by the **I**mportance of **F**eatures (ProeFI), a novel approach that, in a transparent manner, 
 prunes HT to mitigate unbounded growth and enhance adaptability to evolving data. ProeFI employs incremental permutation feature importance and a self-adaptive threshold to dynamically refine
 its pruning process in response to drifting data distributions.
 The implementation is based on [river](https://github.com/online-ml/river) and [ixai](https://github.com/mmschlk/iXAI). ProeFI is implemented as a Hoeffding tree classifier and should support all river functionalities.
