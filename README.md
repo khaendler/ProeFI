@@ -30,14 +30,14 @@ pip install -r requirements.txt
 ## Example Code
 The following code shows one way to train & evaluate ProeFI on Agrawal with an abrupt concept drift. 
 ```python
->>> from river.metrics import ROCAUC
+>>> from river import metrics
 
 >>> from tree import ProeFI
 >>> from data.datasets.experiment_datasets import DriftingAgrawal
 
 >>> dataset = DriftingAgrawal(width=50)
 >>> model = ProeFI()
->>> metric = ROCAUC()
+>>> metric = metrics.ROCAUC()
 
 >>> for x, y in dataset.take(10000):
 >>>   y_pred = model.predict_proba_one(x)
