@@ -1,4 +1,4 @@
-# Pruning Hoeffding Trees by the Importance of Features (ProeFI)
+# Pruning Hoeffding Trees by the Importance of Features
 
 This repository contains the official code for our workshop paper. It contains Pruning Hoeffding Trees by the Importance of Features (ProeFI), a novel approach that, in a transparent manner, 
 prunes HT to mitigate unbounded growth and enhance adaptability to evolving data. ProeFI employs incremental permutation feature importance and a self-adaptive threshold to dynamically refine
