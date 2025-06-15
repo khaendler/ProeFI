@@ -1,45 +1,20 @@
 import os
 import re
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 import scipy.stats as ss
-import scikit_posthocs as sp
 from critdd import Diagram
 import seaborn as sns
-
 from utils.io_helpers import load
-from data.utils import load_thesis_datasets
 from utils.plotting import plot_differences, plot_feature_importance
-from utils.evaluate_multiple import evaluate_multiple
-from utils.compute_averages import compute_total_avg, compute_stats_avgs
 
-
-# TODO: Load all results and average if mulitple seeds were used.
-# load (into one list)
-# compute_stats_avgs
-
-# TODO: Plot only the two HT variants for a comparison.
-# plot_differences
-...
-
-# TODO: Plot only the two AdwinHPT variants for a comparison.
-# plot_differences
-...
-
-# TODO: PLOT HT, HAT, EFDT, AdwinHPT and potentially the merit versions.
-# plot_differences
-...
 
 model_names = ["ht",
-               # "ht_merit",
                "hat",
                "efdt",
                "hpt",
-               # "hpt_merit",
-               # "hpt_convex_merit_0.5"
                ]
 
 data_names = ["airlines", "electricity", "covtype", "nomao", "kdd99", "wisdm",
@@ -185,7 +160,6 @@ def get_cridd(metric, data_dir="./results"):
         alpha=.05,
         adjustment="holm",
         reverse_x=True,
-        # axis_options={"title": ""},
     )
 
 
@@ -238,8 +212,7 @@ def plot_performances_all_data():
                              filename=f"{plot_dir}/accuracy_{data_name}")
 
 
-def plot_fi_importance_all_data(data_dir="./results"):
-    model_names_fi = ["hpt_merit"]  # "adwin_hpt", "adwin_hpt_merit"
+def plot_fi_importance_all_data():
     for data_name in data_names:
         # Plot feature importance
         for model_name in ["hpt", "hpt_tau_0.1", "hpt_tau_0.2", "hpt_tau_0.3", "hpt_tau_0.4", "hpt_tau_0.5",
@@ -251,19 +224,6 @@ def plot_fi_importance_all_data(data_dir="./results"):
                 plot_feature_importance(fi_values=fi_values, names_to_highlight=names_to_highlight, top_k=4,
                                         title=f"Feature Importance on {data_name} using {model_name}",
                                         save_name=f"{plot_dir}/fi_value_{data_name}_{model_name}.pdf")
-
-
-def box_plot_complexity(metric, data_dir="./results"):
-    df = get_df_summary(metric=metric, data_dir=data_dir)
-    df_long = df.reset_index().melt(id_vars='index', var_name='Model', value_name='Value')
-    # Plot
-    plt.figure(figsize=(8, 10))
-    sns.boxplot(data=df_long, x='Model', y='Value', palette='Set2')
-    plt.ylabel("Tree complexity")
-    plt.ylim(0, 400)
-    plt.xlabel('Model')
-    plt.tight_layout()
-    plt.show()
 
 
 def plot_tau_values(metric, data_dir="./results"):
@@ -281,7 +241,7 @@ def plot_tau_values(metric, data_dir="./results"):
             value = 0
             seeds_seen = 0
             for seed in seeds:
-                file_path = f"{data_dir}/{model_name}_seed{seed}_{data_name}.csv"
+                file_path = f"{data_dir}/summary/{model_name}_seed{seed}_{data_name}.csv"
                 if os.path.exists(file_path):
                     df = pd.read_csv(file_path)
                     value += df.iloc[0][metric]
@@ -291,12 +251,10 @@ def plot_tau_values(metric, data_dir="./results"):
                 value /= seeds_seen
                 table.at[data_name, tau] = value
     table.index = table.index.str.replace("_", " ")
-    # print(table)
 
     table = table.apply(pd.to_numeric, errors='coerce')
     plt.rcParams.update({'font.size': 16})
     sns.boxplot(table)
-    # sns.stripplot(table)
     if metric == "Avg Node Count":
         plt.yscale("log")
         plt.ylabel("#nodes")
@@ -307,22 +265,15 @@ def plot_tau_values(metric, data_dir="./results"):
     plt.tight_layout()
     metric = metric.replace(" ", "_")
     plt.savefig(f"./results/plots/boxplot_tau_threshold_{metric}.pdf", format="pdf", bbox_inches="tight")
-    # plt.show()
-
-    print(table.median(axis=0))
 
 
 if __name__ == '__main__':
-    data_dir = "Hoeffding Pruning Tree/2025-05-06"
+    data_dir = "./results"
     # plot_performances_all_data()
     # plot_fi_importance_all_data(data_dir=data_dir)
-    # make_latex_table(metric='Auroc', data_dir=data_dir)
-    # make_latex_table(metric='Avg Node Count', highlight_max=False, precision=2, data_dir=data_dir)
-    # make_latex_table(metric='tradeoff', highlight_max=True, precision=3, data_dir=data_dir)
-    # get_cridd(metric='tradeoff', data_dir=data_dir)
-    # get_cridd(metric='Auroc', data_dir=data_dir)
-    # box_plot_complexity(metric='Avg Node Count', data_dir=data_dir)
-    plot_tau_values(metric='Auroc', data_dir=data_dir + "/summary")
-    plot_tau_values(metric='Avg Node Count', data_dir=data_dir + "/summary")
-
-#plot_fi_importance_all_data()
+    make_latex_table(metric='Auroc', precision=2, data_dir=data_dir)
+    make_latex_table(metric='Avg Node Count', highlight_max=False, precision=2, data_dir=data_dir)
+    make_latex_table(metric='tradeoff', highlight_max=True, precision=3, data_dir=data_dir)
+    get_cridd(metric='tradeoff', data_dir=data_dir)
+    plot_tau_values(metric='Auroc', data_dir=data_dir)
+    plot_tau_values(metric='Avg Node Count', data_dir=data_dir)
