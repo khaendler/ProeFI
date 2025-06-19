@@ -4,9 +4,8 @@ import tarfile
 import urllib.request
 
 import pandas as pd
-from sklearn import datasets as sklearn_datasets
 from river import datasets
-from river.stream import iter_sklearn_dataset, iter_csv, iter_pandas, iter_arff
+from river.stream import iter_csv, iter_pandas, iter_arff
 from river.datasets.synth import Agrawal, RandomRBFDrift, LEDDrift
 
 from data.modified_concept_drift_stream import SafeConceptDriftStream
@@ -25,12 +24,13 @@ DATA_DIR = os.getenv('DATA_DIR', './data/datasets')
 
 
 class Airlines(datasets.base.Dataset):
+    """ Airlines dataset from https://www.kaggle.com/datasets/jimschacko/airlines-dataset-to-predict-a-delay. """
     def __init__(self):
         super().__init__(n_features=7, n_classes=2, n_outputs=1, task=datasets.base.BINARY_CLF)
         csv_data_path = f'{DATA_DIR}/airlines.csv'
         if not os.path.isfile(csv_data_path):
             local_filename, _ = urllib.request.urlretrieve(
-                "https://www.kaggle.com/api/v1/datasets/download/jimschacko/airlines-dataset-to-predict-a-delay",
+                "https://www.kaggle.com/api/v1/datasets/download/jimschacko",
                 f'{DATA_DIR}/airlines.zip')
             with zipfile.ZipFile(local_filename) as z:
                 z.extract('Airlines.csv', path=f'{DATA_DIR}')
@@ -48,6 +48,7 @@ class Airlines(datasets.base.Dataset):
 
 
 class KDD99(datasets.base.Dataset):
+    """ KDD99 dataset from https://kdd.ics.uci.edu/databases/kddcup99/kddcup99.html """
     def __init__(self):
         super().__init__(n_features=41, n_classes=23, n_outputs=1, task=datasets.base.MULTI_CLF)
         csv_data_path = f'{DATA_DIR}/kddcup.data.corrected'
@@ -75,6 +76,9 @@ class KDD99(datasets.base.Dataset):
 
 
 class WISDM(datasets.base.Dataset):
+    """ WISDM dataset from https://www.cis.fordham.edu/wisdm/dataset.php.
+    Removed quotes around attribute names. Corrected class attribute line. Replaced '?' with float('nan').
+    """
     def __init__(self):
         super().__init__(n_features=44, n_classes=6, n_outputs=1, task=datasets.base.MULTI_CLF)
         data_path = f'{DATA_DIR}/WISDM_ar_v1.1_transformed.arff'
@@ -123,6 +127,7 @@ class WISDM(datasets.base.Dataset):
 
 
 class CovType(datasets.base.Dataset):
+    """ Covertype dataset from https://archive.ics.uci.edu/dataset/31/covertype. """
     def __init__(self):
         super().__init__(n_features=54, n_classes=7, n_outputs=1, task=datasets.base.MULTI_CLF)
         data_path = f'{DATA_DIR}/covtype.data'
@@ -155,6 +160,7 @@ class CovType(datasets.base.Dataset):
 
 
 class Nomao(datasets.base.Dataset):
+    """ Nomao dataset from https://archive.ics.uci.edu/dataset/227/nomao. """
     def __init__(self):
         super().__init__(n_features=118, n_classes=2, n_outputs=1, task=datasets.base.BINARY_CLF)
         data_path = f'{DATA_DIR}/nomao.arff'
@@ -175,36 +181,13 @@ class Nomao(datasets.base.Dataset):
             raise StopIteration
 
 
-class Nomao2(datasets.base.Dataset):
-    def __init__(self):
-        super().__init__(n_features=118, n_classes=2, n_outputs=1, task=datasets.base.BINARY_CLF)
-        data_path = f'{DATA_DIR}/Nomao.data'
-        if not os.path.isfile(data_path):
-            local_filename, _ = urllib.request.urlretrieve(
-                "https://archive.ics.uci.edu/static/public/227/nomao.zip",
-                f'{DATA_DIR}/nomao.zip')
-
-            with zipfile.ZipFile(local_filename) as z:
-                z.extract('Nomao/Nomao.data', path=f'{DATA_DIR}')
-
-        csv_file = f"{DATA_DIR}/Nomao.data"
-        df = pd.read_csv(csv_file, header=None, index_col=None)
-        y = df[df.columns[-1]]
-        X = df[df.columns[:-1]]
-        self.iterator = iter_pandas(X, y)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        try:
-            return next(self.iterator)
-        except StopIteration:
-            raise StopIteration
-
-
 class DriftingAgrawal(datasets.base.SyntheticDataset):
-    # used widths: 50 and 50k
+    """ Agrawal Dataset with configurable drift widths. Contains a drift after 250000, 500000 and 750000 instances.
+    To reproduce the drifts, use width=50 for an abrupt, or width=50000 for a gradual concept drift.
+
+    :param width: Width of the drift.
+    :param seed: Random seed for reproducibility.
+    """
     def __init__(self, width, seed=42):
         super().__init__(n_features=9, n_classes=2, n_outputs=1, task=datasets.base.BINARY_CLF)
         _agrawal1 = Agrawal(classification_function=1, perturbation=0.05, seed=seed)
@@ -226,7 +209,12 @@ class DriftingAgrawal(datasets.base.SyntheticDataset):
 
 
 class DriftingRBF(RandomRBFDrift):
-    # used change_speeds: 0.001 and 0.0001
+    """ RBF Dataset with configurable drift speeds. Contains a drift after 250000, 500000 and 750000 instances.
+    To reproduce the drifts, use change_speed=0.001 for a fast, or change_speed=0.0001 for a slow concept drift.
+
+    :param change_speed: The speed of the drift.
+    :param seed: Random seed for reproducibility.
+    """
     def __init__(self, change_speed, seed=42):
         super().__init__(
             seed_model=seed,
@@ -240,7 +228,12 @@ class DriftingRBF(RandomRBFDrift):
 
 
 class DriftingLED(datasets.base.SyntheticDataset):
-    # used widths: 50 and 50k
+    """ LED Dataset with configurable drift widths. Contains a drift after 250000, 500000 and 750000 instances.
+    To reproduce the drifts, use width=50 for an abrupt, or width=50000 for a gradual concept drift.
+
+    :param width: Width of the drift.
+    :param seed: Random seed for reproducibility.
+    """
     def __init__(self, width, seed=42):
         super().__init__(n_features=24, n_classes=10, n_outputs=1, task=datasets.base.MULTI_CLF)
         _led1 = LEDDrift(noise_percentage=0.1, irrelevant_features=True, n_drift_features=1, seed=seed)
