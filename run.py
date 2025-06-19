@@ -1,11 +1,12 @@
 import numpy as np
+import pandas as pd
 from river.metrics import Accuracy, CohenKappa
 from river.tree import (HoeffdingTreeClassifier,
                         HoeffdingAdaptiveTreeClassifier,
                         ExtremelyFastDecisionTreeClassifier)
 from river.datasets import Elec2
 from tree import ProeFI, ProeFIFixedThreshold
-from data.datasets.experiment_datasets import *
+from data import Airlines, KDD99, WISDM, CovType, Nomao, DriftingAgrawal, DriftingRBF, DriftingLED
 from utils.io_helpers import save
 from pathlib import Path
 from sklearn.metrics import roc_auc_score
