@@ -97,8 +97,15 @@ class WISDM(datasets.base.Dataset):
                         lines[47] = ('@attribute class { "Walking" , "Jogging" , "Upstairs" ,'
                                      ' "Downstairs" , "Sitting" , "Standing" }')
 
+                        header = lines[:50]
+                        data_rows = lines[50:]
+
+                        # Replace "?" with "nan" in data rows
+                        processed_rows = [row.replace("?", "nan") for row in data_rows]
+                        cleaned_lines = header + processed_rows
+
                         with open(data_path, 'w', encoding='utf-8') as output_file:
-                            output_file.write('\n'.join(lines))
+                            output_file.write('\n'.join(cleaned_lines))
 
         self.iterator = iter_arff(filepath_or_buffer=f"{DATA_DIR}/WISDM_ar_v1.1_transformed.arff", target="class")
 
