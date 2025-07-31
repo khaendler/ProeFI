@@ -6,7 +6,7 @@ its pruning process in response to drifting data distributions.
 The implementation is based on [river](https://github.com/online-ml/river) and [ixai](https://github.com/mmschlk/iXAI). ProeFI is implemented as a Hoeffding tree classifier and should support all river functionalities.
 
 Workshop paper: **"Transparent and Adaptive Pruning of Hoeffding Trees"** 
-*Submitted to the 2nd TempXAI Workshop on Explainable AI in Time Series and Data Streams, ECML-PKDD 2025*
+*Accepted at the 2nd TempXAI Workshop on Explainable AI in Time Series and Data Streams, ECML-PKDD 2025*
 
 ## Installation
 ProeFI requires **Python 3.8 or above**. Installation of the requirements can be done via `pip`:
